@@ -172,10 +172,8 @@ func (c *Client) ListRoles(ctx context.Context, cursor string) ([]Role, string, 
 // AddGroupMembers adds user to a group.
 func (c *Client) AddGroupMembers(ctx context.Context, groupId, userEmail string) error {
 	url, _ := url.JoinPath(BaseUrl, groups, groupId, users)
-	body := []Payload{
-		{
-			Emails: []string{userEmail},
-		},
+	body := Payload{
+		Emails: []string{userEmail},
 	}
 
 	requestBody, err := json.Marshal(body)
