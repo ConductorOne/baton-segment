@@ -2,12 +2,24 @@ package connector
 
 import (
 	"context"
+	"fmt"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/helpers"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
+	grant "github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/conductorone/baton-segment/pkg/segment"
+	"github.com/iancoleman/strcase"
+)
+
+const (
+	functionType  = "FUNCTION"
+	sourceType    = "SOURCE"
+	warehouseType = "WAREHOUSE"
+	spaceType     = "SPACE"
+	workspaceType = "WORKSPACE"
 )
 
 type userBuilder struct {
@@ -21,8 +33,7 @@ func (u *userBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 
 // Create a new connector resource for a Segment user.
 func userResource(user *segment.User, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
-	firstName, lastName := splitFullName(user.Name)
-
+	firstName, lastName := helpers.SplitFullName(user.Name)
 	profile := map[string]interface{}{
 		"first_name": firstName,
 		"last_name":  lastName,
@@ -90,9 +101,50 @@ func (u *userBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ *
 	return nil, "", nil, nil
 }
 
-// Grants always returns an empty slice for users since they don't have any entitlements.
+// usually grants are not implemented on the user, but due to the way the segment API is structured, it's easier to implement it here
 func (u *userBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
-	return nil, "", nil, nil
+	user, err := u.client.GetUser(ctx, resource.Id.Resource)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	ur, err := userResource(user, resource.ParentResourceId)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	var rv []*v2.Grant
+	for _, p := range user.Permissions {
+		var role segment.Role
+		role.ID = p.RoleID
+		role.Name = p.RoleName
+		rr, err := roleResource(&role, resource.ParentResourceId)
+		if err != nil {
+			return nil, "", nil, fmt.Errorf("error creating role resource for user permissions")
+		}
+
+		// grant user permissions on resources
+		for _, r := range p.Resources {
+			var roleResource segment.Resource
+			roleResource.ID = r.ID
+			roleResource.Type = r.Type
+			roleEntitlement := strcase.ToSnake(role.Name)
+
+			if r.Type == workspaceType {
+				rv = append(rv, grant.NewGrant(rr, roleMembership, ur.Id))
+				continue
+			}
+
+			resource, err := baseResource(roleResource, resource.ParentResourceId)
+			if err != nil {
+				return nil, "", nil, fmt.Errorf("error creating %s resource", r.Type)
+			}
+
+			rv = append(rv, grant.NewGrant(resource, roleEntitlement, ur.Id))
+		}
+	}
+
+	return rv, "", nil, nil
 }
 
 func newUserBuilder(client *segment.Client) *userBuilder {
