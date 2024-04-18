@@ -34,21 +34,22 @@ func parsePageToken(i string, resourceID *v2.ResourceId) (*pagination.Bag, strin
 
 func grantPermissions(ctx context.Context, client *segment.Client, principal *v2.Resource, roleID, resourceType, resourceID string) ([]segment.Permission, error) {
 	l := ctxzap.Extract(ctx)
-	var oldPermissions []segment.Permission
+	var permissions []segment.Permission
 
-	if principal.Id.ResourceType == userResourceType.Id {
+	switch principal.Id.ResourceType {
+	case userResourceType.Id:
 		user, err := client.GetUser(ctx, principal.Id.Resource)
 		if err != nil {
 			return nil, fmt.Errorf("baton-segment: failed to get user info while granting permission: %w", err)
 		}
-		oldPermissions = user.Permissions
-	} else if principal.Id.ResourceType == groupResourceType.Id {
+		permissions = user.Permissions
+	case groupResourceType.Id:
 		group, err := client.GetGroup(ctx, principal.Id.Resource)
 		if err != nil {
 			return nil, fmt.Errorf("baton-segment: failed to get group info while granting permission: %w", err)
 		}
-		oldPermissions = group.Permissions
-	} else {
+		permissions = group.Permissions
+	default:
 		l.Warn(
 			"baton-segment: only users and groups can be granted permissions",
 			zap.String("principal_type", principal.Id.ResourceType),
@@ -57,21 +58,22 @@ func grantPermissions(ctx context.Context, client *segment.Client, principal *v2
 		return nil, fmt.Errorf("baton-segment: only users and groups can be granted permissions")
 	}
 
-	newPermissions := append(oldPermissions, segment.Permission{
+	permissions = append(permissions, segment.Permission{
 		RoleID: roleID,
 		Resources: []segment.Resource{
 			{ID: resourceID, Type: resourceType},
 		},
 	})
 
-	return newPermissions, nil
+	return permissions, nil
 }
 
 func revokePermissions(ctx context.Context, client *segment.Client, principal *v2.Resource, roleID string) ([]segment.Permission, error) {
 	var newPermissions []segment.Permission
 	l := ctxzap.Extract(ctx)
 
-	if principal.Id.ResourceType == userResourceType.Id {
+	switch principal.Id.ResourceType {
+	case userResourceType.Id:
 		user, err := client.GetUser(ctx, principal.Id.Resource)
 		if err != nil {
 			return nil, fmt.Errorf("baton-segment: failed to get user info while revoking role: %w", err)
@@ -81,7 +83,7 @@ func revokePermissions(ctx context.Context, client *segment.Client, principal *v
 				newPermissions = append(newPermissions, permission)
 			}
 		}
-	} else if principal.Id.ResourceType == groupResourceType.Id {
+	case groupResourceType.Id:
 		group, err := client.GetGroup(ctx, principal.Id.Resource)
 		if err != nil {
 			return nil, fmt.Errorf("baton-segment: failed to get group info while revoking role: %w", err)
@@ -91,7 +93,7 @@ func revokePermissions(ctx context.Context, client *segment.Client, principal *v
 				newPermissions = append(newPermissions, permission)
 			}
 		}
-	} else {
+	default:
 		l.Warn(
 			"baton-segment: only users and groups can have permissions revoked",
 			zap.String("principal_type", principal.Id.ResourceType),
@@ -107,7 +109,7 @@ func createEntitlement(role segment.Role, resource *v2.Resource) *v2.Entitlement
 	permissionOptions := []ent.EntitlementOption{
 		ent.WithGrantableTo(userResourceType, groupResourceType),
 		ent.WithDisplayName(fmt.Sprintf("%s resource %s", resource.DisplayName, role.Name)),
-		// need to store role ID to access it later when granting permission
+		// need to store role ID to access it later when granting permission.
 		ent.WithDescription(fmt.Sprintf("%s:%s:%s", role.Name, role.ID, role.Description)),
 	}
 
@@ -128,7 +130,7 @@ func getRoleIdAndResourceType(entitlement *v2.Entitlement) (string, string) {
 	return roleID, resourceType
 }
 
-// baseResource used to create resource associated with a role
+// baseResource used to create resource associated with a role.
 func baseResource(resource segment.Resource, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
 	ret, err := rs.NewResource(
 		resource.Type,

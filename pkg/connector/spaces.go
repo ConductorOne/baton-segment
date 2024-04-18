@@ -59,7 +59,8 @@ func (s *spaceResourceBuilder) List(ctx context.Context, parentResourceID *v2.Re
 
 	var rv []*v2.Resource
 	for _, space := range spaces {
-		sr, err := spaceResource(&space, parentResourceID)
+		spaceCopy := space
+		sr, err := spaceResource(&spaceCopy, parentResourceID)
 		if err != nil {
 			return nil, "", nil, err
 		}
@@ -98,7 +99,7 @@ func (s *spaceResourceBuilder) Entitlements(ctx context.Context, resource *v2.Re
 	return rv, pageToken, nil, nil
 }
 
-// we do the grants on User and Group level
+// We do the grants on User and Group level.
 func (s *spaceResourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
 	return nil, "", nil, nil
 }

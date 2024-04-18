@@ -51,11 +51,10 @@ func (f *functionResourceBuilder) List(ctx context.Context, parentResourceID *v2
 		for {
 			// Fetch data for the current type
 			functions, nextCursor, err := f.client.ListFunctions(ctx, cursor, t)
-			allFunctions = append(allFunctions, functions...)
 			if err != nil {
-				fmt.Printf("Error fetching data for type %s: %v\n", t, err)
-				break
+				return nil, "", nil, fmt.Errorf("error fetching data for type %s: %w", t, err)
 			}
+			allFunctions = append(allFunctions, functions...)
 
 			if nextCursor != "" {
 				cursor = nextCursor
@@ -68,7 +67,8 @@ func (f *functionResourceBuilder) List(ctx context.Context, parentResourceID *v2
 
 	var rv []*v2.Resource
 	for _, fn := range allFunctions {
-		fr, err := functionResource(&fn, parentResourceID)
+		fnCopy := fn
+		fr, err := functionResource(&fnCopy, parentResourceID)
 		if err != nil {
 			return nil, "", nil, err
 		}

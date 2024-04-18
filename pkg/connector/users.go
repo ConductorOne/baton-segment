@@ -101,7 +101,7 @@ func (u *userBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ *
 	return nil, "", nil, nil
 }
 
-// usually grants are not implemented on the user, but due to the way the segment API is structured, it's easier to implement it here
+// Usually grants are not implemented on the user, but due to the way the segment API is structured, it's easier to implement it here.
 func (u *userBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
 	user, err := u.client.GetUser(ctx, resource.Id.Resource)
 	if err != nil {

@@ -116,6 +116,9 @@ func (g *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken
 	}
 
 	gr, err := groupResource(group, resource.ParentResourceId)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("error creating group resource for group %s: %w", resource.Id.Resource, err)
+	}
 
 	users, nextToken, err := g.client.ListGroupMembers(ctx, resource.Id.Resource, page)
 	if err != nil {

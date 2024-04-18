@@ -101,7 +101,7 @@ func (r *roleBuilder) Entitlements(ctx context.Context, resource *v2.Resource, _
 	return rv, "", nil, nil
 }
 
-// Grants are done on user level
+// Grants are done on user level.
 func (r *roleBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
 	return nil, "", nil, nil
 }

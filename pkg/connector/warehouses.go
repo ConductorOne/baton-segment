@@ -59,7 +59,8 @@ func (w *warehouseResourceBuilder) List(ctx context.Context, parentResourceID *v
 
 	var rv []*v2.Resource
 	for _, warehouse := range warehouses {
-		wr, err := warehouseResource(&warehouse, parentResourceID)
+		whCopy := warehouse
+		wr, err := warehouseResource(&whCopy, parentResourceID)
 		if err != nil {
 			return nil, "", nil, err
 		}

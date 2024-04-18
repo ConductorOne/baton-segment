@@ -12,7 +12,6 @@ import (
 const (
 	BaseUrl = "https://api.segmentapis.com/"
 
-	// endpoints
 	groups      = "groups"
 	users       = "users"
 	roles       = "roles"
