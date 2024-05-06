@@ -9,7 +9,6 @@ var (
 		Id:          "user",
 		DisplayName: "User",
 		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_USER},
-		Annotations: annotationsForUserResourceType(),
 	}
 	workspaceResourceType = &v2.ResourceType{
 		Id:          "workspace",
@@ -25,9 +24,20 @@ var (
 		DisplayName: "Role",
 		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_ROLE},
 	}
-	resourceResourceType = &v2.ResourceType{
-		Id:          "resource",
-		DisplayName: "Resource",
-		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_ROLE},
+	sourceResourceType = &v2.ResourceType{
+		Id:          "source",
+		DisplayName: "Source",
+	}
+	warehouseResourceType = &v2.ResourceType{
+		Id:          "warehouse",
+		DisplayName: "Warehouse",
+	}
+	functionResourceType = &v2.ResourceType{
+		Id:          "function",
+		DisplayName: "Function",
+	}
+	spaceResourceType = &v2.ResourceType{
+		Id:          "space",
+		DisplayName: "Space",
 	}
 )

@@ -34,7 +34,10 @@ func workspaceResource(workspace *segment.Workspace) (*v2.Resource, error) {
 			&v2.ChildResourceType{ResourceTypeId: userResourceType.Id},
 			&v2.ChildResourceType{ResourceTypeId: groupResourceType.Id},
 			&v2.ChildResourceType{ResourceTypeId: roleResourceType.Id},
-			&v2.ChildResourceType{ResourceTypeId: resourceResourceType.Id},
+			&v2.ChildResourceType{ResourceTypeId: functionResourceType.Id},
+			&v2.ChildResourceType{ResourceTypeId: sourceResourceType.Id},
+			&v2.ChildResourceType{ResourceTypeId: warehouseResourceType.Id},
+			&v2.ChildResourceType{ResourceTypeId: spaceResourceType.Id},
 		),
 	)
 	if err != nil {
@@ -64,7 +67,7 @@ func (w *workspaceBuilder) Entitlements(_ context.Context, resource *v2.Resource
 	var rv []*v2.Entitlement
 	assignmentOptions := []ent.EntitlementOption{
 		ent.WithGrantableTo(userResourceType),
-		ent.WithDisplayName(fmt.Sprintf("%s Worspace %s", resource.DisplayName, workspaceMembership)),
+		ent.WithDisplayName(fmt.Sprintf("%s Workspace %s", resource.DisplayName, workspaceMembership)),
 		ent.WithDescription(fmt.Sprintf("Member of %s Segement workspace", resource.DisplayName)),
 	}
 

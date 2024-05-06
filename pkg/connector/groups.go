@@ -12,6 +12,7 @@ import (
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/conductorone/baton-segment/pkg/segment"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"github.com/iancoleman/strcase"
 	"go.uber.org/zap"
 )
 
@@ -109,6 +110,16 @@ func (g *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken
 		return nil, "", nil, err
 	}
 
+	group, err := g.client.GetGroup(ctx, resource.Id.Resource)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	gr, err := groupResource(group, resource.ParentResourceId)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("error creating group resource for group %s: %w", resource.Id.Resource, err)
+	}
+
 	users, nextToken, err := g.client.ListGroupMembers(ctx, resource.Id.Resource, page)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("failed to list group members: %w", err)
@@ -129,6 +140,35 @@ func (g *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken
 
 		gr := grant.NewGrant(resource, groupMembership, ur.Id)
 		rv = append(rv, gr)
+	}
+
+	for _, permission := range group.Permissions {
+		var role segment.Role
+		role.ID = permission.RoleID
+		role.Name = permission.RoleName
+		rr, err := roleResource(&role, resource.ParentResourceId)
+		if err != nil {
+			return nil, "", nil, fmt.Errorf("error creating role resource for group permissions")
+		}
+
+		for _, r := range permission.Resources {
+			var roleResource segment.Resource
+			roleResource.ID = r.ID
+			roleResource.Type = r.Type
+			roleEntitlement := strcase.ToSnake(role.Name)
+
+			if r.Type == workspaceType {
+				rv = append(rv, grant.NewGrant(rr, roleMembership, gr.Id))
+				continue
+			}
+
+			resource, err := baseResource(roleResource, resource.ParentResourceId)
+			if err != nil {
+				return nil, "", nil, fmt.Errorf("error creating %s resource", r.Type)
+			}
+
+			rv = append(rv, grant.NewGrant(resource, roleEntitlement, gr.Id))
+		}
 	}
 
 	return rv, pageToken, nil, nil

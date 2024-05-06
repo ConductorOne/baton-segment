@@ -23,7 +23,10 @@ func (s *Segment) ResourceSyncers(ctx context.Context) []connectorbuilder.Resour
 		newWorkspaceBuilder(s.client),
 		newGroupBuilder(s.client),
 		newRoleBuilder(s.client),
-		newRoleResourceBuilder(s.client),
+		newSourceBuilder(s.client),
+		newWarehouseBuilder(s.client),
+		newFunctionBuilder(s.client),
+		newSpaceBuilder(s.client),
 	}
 }
 
@@ -31,7 +34,7 @@ func (s *Segment) ResourceSyncers(ctx context.Context) []connectorbuilder.Resour
 func (s *Segment) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error) {
 	return &v2.ConnectorMetadata{
 		DisplayName: "Segment",
-		Description: "Connector syncing Segment users, groups, roles, and workspaces.",
+		Description: "Connector syncing Segment users, groups, roles, workspaces, sources, functions, spaces and warehouses.",
 	}, nil
 }
 

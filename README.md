@@ -43,7 +43,10 @@ baton resources
 
 - Users
 - Groups
-- Resources
+- Functions
+- Sources
+- Spaces
+- Warehouses
 - Roles
 - Workspace
 

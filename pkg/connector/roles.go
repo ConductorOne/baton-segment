@@ -3,12 +3,12 @@ package connector
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	ent "github.com/conductorone/baton-sdk/pkg/types/entitlement"
-	grant "github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/conductorone/baton-segment/pkg/segment"
 )
@@ -101,89 +101,45 @@ func (r *roleBuilder) Entitlements(ctx context.Context, resource *v2.Resource, _
 	return rv, "", nil, nil
 }
 
+// Grants are done on user level.
 func (r *roleBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
-	bag, page, err := parsePageToken(pToken.Token, &v2.ResourceId{ResourceType: roleResourceType.Id})
+	return nil, "", nil, nil
+}
+
+func (r *roleBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) (annotations.Annotations, error) {
+	roleID := entitlement.Resource.Id.Resource
+	resourceType := strings.ToUpper(workspaceType)
+	workspaceID := entitlement.Resource.ParentResourceId.Resource
+
+	permissions, err := grantPermissions(ctx, r.client, principal, roleID, resourceType, workspaceID)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, err
 	}
 
-	var rv []*v2.Grant
-	switch bag.ResourceTypeID() {
-	case roleResourceType.Id:
-		bag.Pop()
-		bag.Push(pagination.PageState{
-			ResourceTypeID: userResourceType.Id,
-		})
-		bag.Push(pagination.PageState{
-			ResourceTypeID: groupResourceType.Id,
-		})
-
-	case userResourceType.Id:
-		users, nextCursor, err := r.client.ListUsers(ctx, page)
-		if err != nil {
-			return nil, "", nil, err
-		}
-
-		paginationErr := bag.Next(nextCursor)
-		if paginationErr != nil {
-			return nil, "", nil, paginationErr
-		}
-
-		for _, user := range users {
-			userCopy := user
-			for _, userPermission := range user.Permissions {
-				if userPermission.RoleID == resource.Id.Resource {
-					ur, err := userResource(&userCopy, resource.Id)
-					if err != nil {
-						return nil, "", nil, fmt.Errorf("error creating user resource for role %s: %w", resource.Id.Resource, err)
-					}
-					gr := grant.NewGrant(resource, roleMembership, ur.Id)
-					rv = append(rv, gr)
-				}
-			}
-		}
-	case groupResourceType.Id:
-		groups, nextCursor, err := r.client.ListGroups(ctx, page)
-		if err != nil {
-			return nil, "", nil, err
-		}
-
-		paginationErr := bag.Next(nextCursor)
-		if paginationErr != nil {
-			return nil, "", nil, paginationErr
-		}
-
-		for _, group := range groups {
-			groupCopy := group
-
-			for _, groupPermission := range group.Permissions {
-				if groupPermission.RoleID == resource.Id.Resource {
-					gRes, err := groupResource(&groupCopy, resource.Id)
-					if err != nil {
-						return nil, "", nil, fmt.Errorf("error creating group resource for role %s: %w", resource.Id.Resource, err)
-					}
-
-					expandAnnos := &v2.GrantExpandable{
-						EntitlementIds: []string{
-							fmt.Sprintf("group:%s:member", groupCopy.ID),
-						},
-						Shallow: true,
-					}
-					gr := grant.NewGrant(resource, roleMembership, gRes.Id, grant.WithAnnotation(expandAnnos))
-					rv = append(rv, gr)
-				}
-			}
-		}
-	default:
-		return nil, "", nil, fmt.Errorf("unexpected resource type while fetching grants for a role")
-	}
-
-	pageToken, err := bag.Marshal()
+	err = r.client.UpdatePermissions(ctx, principal.Id.Resource, principal.Id.ResourceType, permissions)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, fmt.Errorf("baton-segment: failed to add permission to user %s for on the workspace resource: %w", principal.DisplayName, err)
 	}
 
-	return rv, pageToken, nil, nil
+	return nil, nil
+}
+
+func (r *roleBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
+	entitlement := grant.Entitlement
+	principal := grant.Principal
+	roleID := entitlement.Resource.Id.Resource
+
+	permissions, err := revokePermissions(ctx, r.client, principal, roleID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.client.UpdatePermissions(ctx, principal.Id.Resource, principal.Id.ResourceType, permissions)
+	if err != nil {
+		return nil, fmt.Errorf("baton-segment: failed to remove permission from user %s for on the workspace: %w", principal.DisplayName, err)
+	}
+
+	return nil, nil
 }
 
 func newRoleBuilder(client *segment.Client) *roleBuilder {
