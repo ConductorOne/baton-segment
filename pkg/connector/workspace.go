@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/conductorone/baton-segment/pkg/segment"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
-	"github.com/conductorone/baton-sdk/pkg/pagination"
 	ent "github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	grant "github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
-	"github.com/conductorone/baton-segment/pkg/segment"
 )
 
 const workspaceMembership = "member"
@@ -47,23 +46,23 @@ func workspaceResource(workspace *segment.Workspace) (*v2.Resource, error) {
 	return ret, nil
 }
 
-func (w *workspaceBuilder) List(ctx context.Context, _ *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
+func (w *workspaceBuilder) List(ctx context.Context, _ *v2.ResourceId, attrs rs.SyncOpAttrs) ([]*v2.Resource, *rs.SyncOpResults, error) {
 	workspace, err := w.client.GetWorkspace(ctx)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	var rv []*v2.Resource
 	ur, err := workspaceResource(workspace)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 	rv = append(rv, ur)
 
-	return rv, "", nil, nil
+	return rv, nil, nil
 }
 
-func (w *workspaceBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
+func (w *workspaceBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ rs.SyncOpAttrs) ([]*v2.Entitlement, *rs.SyncOpResults, error) {
 	var rv []*v2.Entitlement
 	assignmentOptions := []ent.EntitlementOption{
 		ent.WithGrantableTo(userResourceType),
@@ -77,23 +76,24 @@ func (w *workspaceBuilder) Entitlements(_ context.Context, resource *v2.Resource
 		assignmentOptions...,
 	))
 
-	return rv, "", nil, nil
+	return rv, nil, nil
 }
 
-func (w *workspaceBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
+func (w *workspaceBuilder) Grants(ctx context.Context, resource *v2.Resource, attrs rs.SyncOpAttrs) ([]*v2.Grant, *rs.SyncOpResults, error) {
+	pToken := attrs.PageToken
 	bag, page, err := parsePageToken(pToken.Token, resource.Id)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	users, nextToken, err := w.client.ListUsers(ctx, page)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("failed to list workspace members: %w", err)
+		return nil, nil, fmt.Errorf("failed to list workspace members: %w", err)
 	}
 
 	pageToken, err := bag.NextToken(nextToken)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	var rv []*v2.Grant
@@ -101,7 +101,7 @@ func (w *workspaceBuilder) Grants(ctx context.Context, resource *v2.Resource, pT
 		userCopy := user
 		ur, err := userResource(&userCopy, resource.Id)
 		if err != nil {
-			return nil, "", nil, fmt.Errorf("error creating workspace user %s: %w", resource.Id.Resource, err)
+			return nil, nil, fmt.Errorf("error creating workspace user %s: %w", resource.Id.Resource, err)
 		}
 		rv = append(rv, grant.NewGrant(
 			resource,
@@ -110,7 +110,7 @@ func (w *workspaceBuilder) Grants(ctx context.Context, resource *v2.Resource, pT
 		))
 	}
 
-	return rv, pageToken, nil, nil
+	return rv, &rs.SyncOpResults{NextPageToken: pageToken}, nil
 }
 
 func newWorkspaceBuilder(client *segment.Client) *workspaceBuilder {

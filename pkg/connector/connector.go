@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	cfg "github.com/conductorone/baton-segment/pkg/config"
+	"github.com/conductorone/baton-segment/pkg/segment"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/cli"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
-	"github.com/conductorone/baton-segment/pkg/segment"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 )
 
@@ -17,8 +19,8 @@ type Segment struct {
 }
 
 // ResourceSyncers returns a ResourceSyncer for each resource type that should be synced from the upstream service.
-func (s *Segment) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
-	return []connectorbuilder.ResourceSyncer{
+func (s *Segment) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncerV2 {
+	return []connectorbuilder.ResourceSyncerV2{
 		newUserBuilder(s.client),
 		newWorkspaceBuilder(s.client),
 		newGroupBuilder(s.client),
@@ -49,15 +51,15 @@ func (s *Segment) Validate(ctx context.Context) (annotations.Annotations, error)
 }
 
 // New returns a new instance of the connector.
-func New(ctx context.Context, token string) (*Segment, error) {
+func New(ctx context.Context, cc *cfg.Segment, opts *cli.ConnectorOpts) (connectorbuilder.ConnectorBuilderV2, []connectorbuilder.Opt, error) {
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, ctxzap.Extract(ctx)))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	client := segment.NewClient(httpClient, token)
+	client := segment.NewClient(httpClient, cc.Token)
 
 	return &Segment{
 		client: client,
-	}, nil
+	}, nil, nil
 }

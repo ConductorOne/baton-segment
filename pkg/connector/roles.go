@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/conductorone/baton-segment/pkg/segment"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
-	"github.com/conductorone/baton-sdk/pkg/pagination"
 	ent "github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
-	"github.com/conductorone/baton-segment/pkg/segment"
 )
 
 const roleMembership = "member"
@@ -51,24 +50,25 @@ func roleResource(role *segment.Role, parentResourceID *v2.ResourceId) (*v2.Reso
 	return resource, nil
 }
 
-func (r *roleBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
+func (r *roleBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, attrs rs.SyncOpAttrs) ([]*v2.Resource, *rs.SyncOpResults, error) {
 	if parentResourceID == nil {
-		return nil, "", nil, nil
+		return nil, nil, nil
 	}
 
+	pToken := attrs.PageToken
 	bag, page, err := parsePageToken(pToken.Token, &v2.ResourceId{ResourceType: roleResourceType.Id})
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	roles, nextCursor, err := r.client.ListRoles(ctx, page)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	pageToken, err := bag.NextToken(nextCursor)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	var rv []*v2.Resource
@@ -76,16 +76,16 @@ func (r *roleBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId,
 		roleCopy := role
 		rr, err := roleResource(&roleCopy, parentResourceID)
 		if err != nil {
-			return nil, "", nil, err
+			return nil, nil, err
 		}
 
 		rv = append(rv, rr)
 	}
 
-	return rv, pageToken, nil, nil
+	return rv, &rs.SyncOpResults{NextPageToken: pageToken}, nil
 }
 
-func (r *roleBuilder) Entitlements(ctx context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
+func (r *roleBuilder) Entitlements(ctx context.Context, resource *v2.Resource, _ rs.SyncOpAttrs) ([]*v2.Entitlement, *rs.SyncOpResults, error) {
 	var rv []*v2.Entitlement
 	assignmentOptions := []ent.EntitlementOption{
 		ent.WithGrantableTo(userResourceType, groupResourceType),
@@ -98,12 +98,12 @@ func (r *roleBuilder) Entitlements(ctx context.Context, resource *v2.Resource, _
 		roleMembership,
 		assignmentOptions...,
 	))
-	return rv, "", nil, nil
+	return rv, nil, nil
 }
 
 // Grants are done on user level.
-func (r *roleBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
-	return nil, "", nil, nil
+func (r *roleBuilder) Grants(ctx context.Context, resource *v2.Resource, attrs rs.SyncOpAttrs) ([]*v2.Grant, *rs.SyncOpResults, error) {
+	return nil, nil, nil
 }
 
 func (r *roleBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) (annotations.Annotations, error) {

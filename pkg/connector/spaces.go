@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/conductorone/baton-segment/pkg/segment"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
-	"github.com/conductorone/baton-sdk/pkg/pagination"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
-	"github.com/conductorone/baton-segment/pkg/segment"
 )
 
 type spaceResourceBuilder struct {
@@ -37,24 +36,25 @@ func spaceResource(space *segment.Space, parentResourceID *v2.ResourceId) (*v2.R
 	return resource, nil
 }
 
-func (s *spaceResourceBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
+func (s *spaceResourceBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, attrs rs.SyncOpAttrs) ([]*v2.Resource, *rs.SyncOpResults, error) {
 	if parentResourceID == nil {
-		return nil, "", nil, nil
+		return nil, nil, nil
 	}
 
+	pToken := attrs.PageToken
 	bag, page, err := parsePageToken(pToken.Token, &v2.ResourceId{ResourceType: spaceResourceType.Id})
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	spaces, nextCursor, err := s.client.ListSpaces(ctx, page)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	pageToken, err := bag.NextToken(nextCursor)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	var rv []*v2.Resource
@@ -62,29 +62,30 @@ func (s *spaceResourceBuilder) List(ctx context.Context, parentResourceID *v2.Re
 		spaceCopy := space
 		sr, err := spaceResource(&spaceCopy, parentResourceID)
 		if err != nil {
-			return nil, "", nil, err
+			return nil, nil, err
 		}
 
 		rv = append(rv, sr)
 	}
 
-	return rv, pageToken, nil, nil
+	return rv, &rs.SyncOpResults{NextPageToken: pageToken}, nil
 }
 
-func (s *spaceResourceBuilder) Entitlements(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
+func (s *spaceResourceBuilder) Entitlements(ctx context.Context, resource *v2.Resource, attrs rs.SyncOpAttrs) ([]*v2.Entitlement, *rs.SyncOpResults, error) {
+	pToken := attrs.PageToken
 	bag, page, err := parsePageToken(pToken.Token, &v2.ResourceId{ResourceType: roleResourceType.Id})
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	roles, nextCursor, err := s.client.ListRoles(ctx, page)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	pageToken, err := bag.NextToken(nextCursor)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
 	var rv []*v2.Entitlement
@@ -96,12 +97,12 @@ func (s *spaceResourceBuilder) Entitlements(ctx context.Context, resource *v2.Re
 		}
 	}
 
-	return rv, pageToken, nil, nil
+	return rv, &rs.SyncOpResults{NextPageToken: pageToken}, nil
 }
 
 // We do the grants on User and Group level.
-func (s *spaceResourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
-	return nil, "", nil, nil
+func (s *spaceResourceBuilder) Grants(ctx context.Context, resource *v2.Resource, attrs rs.SyncOpAttrs) ([]*v2.Grant, *rs.SyncOpResults, error) {
+	return nil, nil, nil
 }
 
 func (s *spaceResourceBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) (annotations.Annotations, error) {

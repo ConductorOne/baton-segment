@@ -1,0 +1,16 @@
+Containerize baton-segment connector
+
+- Update baton-sdk to latest version (v0.7.10)
+- Create pkg/config package with generated configuration
+- Update main.go to use new config.RunConnector API
+- Update connector.go to support V2 syncing interface
+- Update all resource builders to use rs.SyncOpAttrs and rs.SyncOpResults
+- Update Makefile to support generated config and build tags
+- Update GitHub workflows:
+  - Merge main.yaml into ci.yaml
+  - Update capabilities workflow to generate config schema
+  - Remove lambda flag from release workflow
+- Delete old config.go from cmd/baton-segment
+- Delete main.yaml workflow
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
