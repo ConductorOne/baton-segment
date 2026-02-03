@@ -43,6 +43,10 @@ func (s *Segment) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error) {
 // Validate is called to ensure that the connector is properly configured. It should exercise any API credentials
 // to be sure that they are valid.
 func (s *Segment) Validate(ctx context.Context) (annotations.Annotations, error) {
+	if s.client == nil {
+		// skip for capabilities and config generation
+		return nil, nil
+	}
 	_, err := s.client.GetWorkspace(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error validating Segment connector: %w", err)
