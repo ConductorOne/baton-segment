@@ -1,4 +1,4 @@
-version: 1
+version: "2"
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
