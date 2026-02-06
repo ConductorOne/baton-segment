@@ -8,6 +8,7 @@ var (
 	TokenField = field.StringField(
 		"token",
 		field.WithDescription("The Segment access token used to connect to the Segment API"),
+		field.WithIsSecret(true),
 		field.WithRequired(true),
 	)
 
