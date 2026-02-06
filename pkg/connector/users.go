@@ -6,7 +6,6 @@ import (
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
-	"github.com/conductorone/baton-sdk/pkg/helpers"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	grant "github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
@@ -33,7 +32,7 @@ func (u *userBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 
 // Create a new connector resource for a Segment user.
 func userResource(user *segment.User, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
-	firstName, lastName := helpers.SplitFullName(user.Name)
+	firstName, lastName := rs.SplitFullName(user.Name)
 	profile := map[string]interface{}{
 		"first_name": firstName,
 		"last_name":  lastName,
