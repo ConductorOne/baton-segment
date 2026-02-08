@@ -25,6 +25,8 @@ var (
 		field.WithDisplayName("Base URL"),
 		field.WithDescription("Base URL for the Segment API"),
 		field.WithDefaultValue("https://api.segmentapis.com"),
+		field.WithHidden(true),
+		field.WithExportTarget(field.ExportTargetCLIOnly),
 	)
 
 	ConfigurationFields = []field.SchemaField{
