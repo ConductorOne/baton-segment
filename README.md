@@ -1,4 +1,4 @@
-# `baton-segment` [![Go Reference](https://pkg.go.dev/badge/github.com/conductorone/baton-segment.svg)](https://pkg.go.dev/github.com/conductorone/baton-segment) ![main ci](https://github.com/conductorone/baton-segment/actions/workflows/main.yaml/badge.svg)
+# `baton-segment` [![Go Reference](https://pkg.go.dev/badge/github.com/conductorone/baton-segment.svg)](https://pkg.go.dev/github.com/conductorone/baton-segment) ![ci](https://github.com/conductorone/baton-segment/actions/workflows/ci.yaml/badge.svg)
 
 `baton-segment` is a connector for Segment built using the [Baton SDK](https://github.com/conductorone/baton-sdk). It communicates with the Segment API to sync data about users, groups, resources, roles and workspaces.
 Check out [Baton](https://github.com/conductorone/baton) to learn more about the project in general.
