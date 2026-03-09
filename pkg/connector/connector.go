@@ -80,7 +80,7 @@ func (c *Connector) Validate(ctx context.Context) (annotations.Annotations, erro
 
 // New returns a new instance of the connector.
 func New(ctx context.Context,
-	connectorConfig *cfg.TwilioSegmentV2,
+	connectorConfig *cfg.Segment,
 	cliOpts *cli.ConnectorOpts,
 ) (connectorbuilder.ConnectorBuilderV2,
 	[]connectorbuilder.Opt,

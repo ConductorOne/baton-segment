@@ -3,12 +3,12 @@ package config
 
 import "reflect" 
 
-type TwilioSegmentV2 struct {
+type Segment struct {
 	AccessToken string `mapstructure:"access-token"`
 	BaseUrl string `mapstructure:"base-url"`
 }
 
-func (c *TwilioSegmentV2) findFieldByTag(tagValue string) (any, bool) {
+func (c *Segment) findFieldByTag(tagValue string) (any, bool) {
 	v := reflect.ValueOf(c).Elem() // Dereference pointer to struct
 	t := v.Type()
 
@@ -23,7 +23,7 @@ func (c *TwilioSegmentV2) findFieldByTag(tagValue string) (any, bool) {
 	return nil, false
 }
 
-func (c *TwilioSegmentV2) GetStringSlice(fieldName string) []string {
+func (c *Segment) GetStringSlice(fieldName string) []string {
 	v, ok := c.findFieldByTag(fieldName)
 	if !ok {
 		return []string{}
@@ -35,7 +35,7 @@ func (c *TwilioSegmentV2) GetStringSlice(fieldName string) []string {
 	return t
 }
 
-func (c *TwilioSegmentV2) GetString(fieldName string) string {
+func (c *Segment) GetString(fieldName string) string {
 	v, ok := c.findFieldByTag(fieldName)
 	if !ok {
 		return ""
@@ -49,7 +49,7 @@ func (c *TwilioSegmentV2) GetString(fieldName string) string {
 	panic("wrong type")
 }
 
-func (c *TwilioSegmentV2) GetInt(fieldName string) int {
+func (c *Segment) GetInt(fieldName string) int {
 	v, ok := c.findFieldByTag(fieldName)
 	if !ok {
 		return 0
@@ -61,7 +61,7 @@ func (c *TwilioSegmentV2) GetInt(fieldName string) int {
 	return t
 }
 
-func (c *TwilioSegmentV2) GetBool(fieldName string) bool {
+func (c *Segment) GetBool(fieldName string) bool {
 	v, ok := c.findFieldByTag(fieldName)
 	if !ok {
 		return false
@@ -73,7 +73,7 @@ func (c *TwilioSegmentV2) GetBool(fieldName string) bool {
 	return t
 }
 
-func (c *TwilioSegmentV2) GetStringMap(fieldName string) map[string]any {
+func (c *Segment) GetStringMap(fieldName string) map[string]any {
 	v, ok := c.findFieldByTag(fieldName)
 	if !ok {
 		return map[string]any{}
