@@ -10,12 +10,12 @@ import (
 func TestValidateConfig(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  *TwilioSegmentV2
+		config  *Segment
 		wantErr bool
 	}{
 		{
 			name: "valid config",
-			config: &TwilioSegmentV2{
+			config: &Segment{
 				AccessToken: "test-access-token",
 				BaseUrl:     "https://api.segmentapis.com",
 			},
@@ -23,14 +23,14 @@ func TestValidateConfig(t *testing.T) {
 		},
 		{
 			name: "valid config - only required fields",
-			config: &TwilioSegmentV2{
+			config: &Segment{
 				AccessToken: "test-access-token",
 			},
 			wantErr: false,
 		},
 		{
 			name:    "invalid config - missing access token",
-			config:  &TwilioSegmentV2{},
+			config:  &Segment{},
 			wantErr: true,
 		},
 	}
