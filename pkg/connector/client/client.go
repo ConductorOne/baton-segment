@@ -82,6 +82,14 @@ type Client struct {
 
 // New creates a new Segment API client.
 func New(ctx context.Context, accessToken, baseURL string) (*Client, error) {
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base URL: %w", err)
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return nil, fmt.Errorf("invalid base URL %q: must include scheme and host", baseURL)
+	}
+
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, ctxzap.Extract(ctx)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create http client: %w", err)
@@ -94,7 +102,7 @@ func New(ctx context.Context, accessToken, baseURL string) (*Client, error) {
 
 	return &Client{
 		httpClient:  baseClient,
-		baseURL:     baseURL,
+		baseURL:     parsed.String(),
 		accessToken: accessToken,
 	}, nil
 }
@@ -109,7 +117,11 @@ func (c *Client) doRequest(
 	body interface{},
 	response interface{},
 ) (*v2.RateLimitDescription, error) {
-	parsedURL, err := url.Parse(c.baseURL + path)
+	rawURL, err := url.JoinPath(c.baseURL, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build url: %w", err)
+	}
+	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse url: %w", err)
 	}
@@ -257,6 +269,9 @@ func (c *Client) AddUsersToGroup(ctx context.Context, groupID string, emails []s
 
 // RemoveUsersFromGroup removes users from a group by email.
 func (c *Client) RemoveUsersFromGroup(ctx context.Context, groupID string, emails []string) (*v2.RateLimitDescription, error) {
+	if len(emails) == 0 {
+		return nil, nil
+	}
 	query := url.Values{}
 	for i, email := range emails {
 		query.Set(fmt.Sprintf("emails.%d", i), email)
@@ -315,6 +330,9 @@ func (c *Client) CreateInvites(ctx context.Context, invites []InviteRequest) (*C
 
 // DeleteInvites removes pending invitations by email.
 func (c *Client) DeleteInvites(ctx context.Context, emails []string) (*v2.RateLimitDescription, error) {
+	if len(emails) == 0 {
+		return nil, nil
+	}
 	query := url.Values{}
 	for i, email := range emails {
 		query.Set(fmt.Sprintf("emails.%d", i), email)

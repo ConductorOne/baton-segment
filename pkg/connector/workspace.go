@@ -73,7 +73,8 @@ func (b *workspaceBuilder) Entitlements(_ context.Context, resource *v2.Resource
 			workspaceMemberEntitlement,
 			ent.WithDisplayName(fmt.Sprintf("%s Workspace Member", resource.DisplayName)),
 			ent.WithDescription(fmt.Sprintf("Member of the %s Segment workspace", resource.DisplayName)),
-			ent.WithGrantableTo(userResourceType),
+			// Workspace membership is read-only: users are added via invites (inviteBuilder.CreateAccount),
+			// not by granting this entitlement directly.
 		),
 	}
 	return entitlements, nil, nil

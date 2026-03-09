@@ -25,8 +25,14 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`)) //nolint:errcheck // health check response write failure is non-critical
 	})
 
-	// Workspace endpoint (root)
-	mux.HandleFunc("GET /", ts.authMiddleware(ts.handleGetWorkspace))
+	// Workspace endpoint (exact root only — "GET /" is a subtree pattern so guard against other paths)
+	mux.HandleFunc("GET /", ts.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		ts.handleGetWorkspace(w, r)
+	}))
 
 	// Users endpoints
 	mux.HandleFunc("GET /users", ts.authMiddleware(ts.handleListUsers))

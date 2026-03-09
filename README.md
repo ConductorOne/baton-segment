@@ -202,7 +202,7 @@ See [CONTRIBUTING.md](https://github.com/ConductorOne/baton/blob/main/CONTRIBUTI
 
 # `baton-segment` Command Line Usage
 
-```
+```text
 baton-segment
 
 Usage:

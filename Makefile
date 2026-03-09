@@ -24,6 +24,7 @@ $(GENERATED_CONF): pkg/config/config.go go.mod
 	@echo "Generating $(GENERATED_CONF)..."
 	go generate -tags=generate ./pkg/config
 
+.PHONY: generate
 generate: $(GENERATED_CONF)
 
 .PHONY: update-deps
@@ -54,11 +55,11 @@ test-server:
 
 .PHONY: test-with-server
 test-with-server: build
-	@echo "Starting test server in background..."
-	go run ./cmd/test-server &
-	@sleep 2
-	@echo "Running connector sync..."
+	@echo "Starting test server in background..."; \
+	go run ./cmd/test-server & SERVER_PID=$$!; \
+	trap "kill -TERM $$SERVER_PID 2>/dev/null || kill -9 $$SERVER_PID 2>/dev/null" EXIT; \
+	sleep 2; \
+	echo "Running connector sync..."; \
 	${OUTPUT_PATH} \
 		--base-url http://localhost:8080 \
 		--access-token test-segment-token-12345
-	@pkill -f "test-server" || true

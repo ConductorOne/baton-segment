@@ -145,6 +145,7 @@ func (ts *TestServer) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	// Remove user from all groups
 	for groupID, group := range ts.groups {
 		group.Members = removeFromSlice(group.Members, userID)
+		ts.groups[groupID] = group
 		ts.updateGroupMemberCount(groupID)
 	}
 

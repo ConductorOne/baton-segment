@@ -277,7 +277,6 @@ func (b *groupBuilder) Grant(ctx context.Context, principal *v2.Resource, entitl
 	l.Debug("granting group membership",
 		zap.String("group_id", groupID),
 		zap.String("user_id", userID),
-		zap.String("email", email),
 	)
 
 	_, rateLimit, err := b.client.AddUsersToGroup(ctx, groupID, []string{email})
@@ -312,7 +311,6 @@ func (b *groupBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations
 	l.Debug("revoking group membership",
 		zap.String("group_id", groupID),
 		zap.String("user_id", userID),
-		zap.String("email", email),
 	)
 
 	outputAnnotations := annotations.New()

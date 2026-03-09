@@ -305,7 +305,7 @@ The **Workspace** is the top-level container in Segment. It represents your orga
 
 Permissions in Segment follow this structure:
 
-```
+```json
 Permission = {
     roleId: "role_source_admin",
     resources: [
@@ -327,7 +327,7 @@ Permission = {
 
 ### Permission Inheritance
 
-```
+```text
 User Permissions = Direct Permissions + Group Permissions
 
 Example:
@@ -350,7 +350,7 @@ To modify permissions, you must:
 
 ## Resource Relationships Diagram
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           WORKSPACE                                  │
 │                    (Top-level container)                            │
