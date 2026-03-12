@@ -16,7 +16,7 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "valid config",
 			config: &Segment{
-				AccessToken: "test-access-token",
+				Token: "test-access-token",
 				BaseUrl:     "https://api.segmentapis.com",
 			},
 			wantErr: false,
@@ -24,7 +24,7 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "valid config - only required fields",
 			config: &Segment{
-				AccessToken: "test-access-token",
+				Token: "test-access-token",
 			},
 			wantErr: false,
 		},
