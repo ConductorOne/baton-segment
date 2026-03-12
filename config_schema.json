@@ -93,7 +93,7 @@
       }
     },
     {
-      "name": "access-token",
+      "name": "token",
       "displayName": "Access Token",
       "description": "Personal Access Token (PAT) for Segment API authentication",
       "isRequired": true,
