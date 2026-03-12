@@ -86,7 +86,7 @@ func New(ctx context.Context,
 	[]connectorbuilder.Opt,
 	error,
 ) {
-	c, err := client.New(ctx, connectorConfig.AccessToken, connectorConfig.BaseUrl)
+	c, err := client.New(ctx, connectorConfig.Token, connectorConfig.BaseUrl)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create client: %w", err)
 	}

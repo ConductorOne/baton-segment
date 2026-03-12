@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	AccessTokenKey = "access-token"
+	AccessTokenKey = "token"
 	BaseURLKey     = "base-url"
 )
 

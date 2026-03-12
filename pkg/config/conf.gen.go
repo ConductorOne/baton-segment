@@ -4,7 +4,7 @@ package config
 import "reflect" 
 
 type Segment struct {
-	AccessToken string `mapstructure:"access-token"`
+	Token string `mapstructure:"token"`
 	BaseUrl string `mapstructure:"base-url"`
 }
 
