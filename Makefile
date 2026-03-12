@@ -62,4 +62,4 @@ test-with-server: build
 	echo "Running connector sync..."; \
 	${OUTPUT_PATH} \
 		--base-url http://localhost:8080 \
-		--access-token test-segment-token-12345
+		--token test-segment-token-12345

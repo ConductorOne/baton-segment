@@ -139,21 +139,21 @@ Role-based entitlements are created on **scope resources** (workspace, source, w
 ## Example: Grant Group Membership
 
 ```bash
-baton-segment --access-token $TOKEN
+baton-segment --token $TOKEN
 baton grant --entitlement "group:group_001:member" --principal-type user --principal "user:user_123"
 ```
 
 ## Example: Assign Role to User on Workspace
 
 ```bash
-baton-segment --access-token $TOKEN
+baton-segment --token $TOKEN
 baton grant --entitlement "workspace:workspace_001:workspace-owner" --principal-type user --principal "user:user_123"
 ```
 
 ## Example: Revoke Role from Group on Source
 
 ```bash
-baton-segment --access-token $TOKEN
+baton-segment --token $TOKEN
 baton revoke --grant "source:source_001:source-admin:group:group_001"
 ```
 
@@ -161,7 +161,7 @@ baton revoke --grant "source:source_001:source-admin:group:group_001"
 
 | Flag | Environment Variable | Description | Required |
 |------|---------------------|-------------|----------|
-| `--access-token` | `BATON_ACCESS_TOKEN` | Personal Access Token for Segment API | Yes |
+| `--token` | `BATON_TOKEN` | Personal Access Token for Segment API | Yes |
 | `--base-url` | `BATON_BASE_URL` | Base URL for Segment API (default: `https://api.segmentapis.com`) | No |
 
 # Development
@@ -180,7 +180,7 @@ go build -o dist/test-server ./cmd/test-server
 # In another terminal, run the connector
 ./dist/darwin_arm64/baton-segment \
   --base-url http://localhost:8080 \
-  --access-token test-segment-token-12345
+  --token test-segment-token-12345
 ```
 
 The test server provides mock endpoints for all Segment API operations used by the connector.
@@ -215,7 +215,6 @@ Available Commands:
   help               Help about any command
 
 Flags:
-      --access-token string        Personal Access Token for Segment API ($BATON_ACCESS_TOKEN)
       --base-url string            Base URL for the Segment API ($BATON_BASE_URL) (default "https://api.segmentapis.com")
       --client-id string           The client ID used to authenticate with ConductorOne ($BATON_CLIENT_ID)
       --client-secret string       The client secret used to authenticate with ConductorOne ($BATON_CLIENT_SECRET)
@@ -225,6 +224,7 @@ Flags:
       --log-level string           The log level: debug, info, warn, error ($BATON_LOG_LEVEL) (default "info")
   -p, --provisioning               Enable provisioning support ($BATON_PROVISIONING)
       --ticketing                  Enable ticketing support ($BATON_TICKETING)
+      --token string        Personal Access Token for Segment API ($BATON_TOKEN)
   -v, --version                    version for baton-segment
 
 Use "baton-segment [command] --help" for more information about a command.
