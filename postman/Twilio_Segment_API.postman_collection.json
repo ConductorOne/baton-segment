@@ -1,0 +1,650 @@
+{
+	"info": {
+		"_postman_id": "baton-segment",
+		"name": "Twilio Segment API",
+		"description": "API collection for the Baton Twilio Segment V2 connector.\n\nThis collection includes all endpoints used by the connector for syncing IAM resources and provisioning.\n\n**Authentication**: Bearer token (Personal Access Token)\n\n**Base URL**: https://api.segmentapis.com (production) or http://localhost:8080 (test server)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "test-segment-token-12345",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "user_001",
+			"type": "string"
+		},
+		{
+			"key": "group_id",
+			"value": "group_001",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Workspace",
+			"description": "Workspace endpoint - returns the workspace associated with the access token.",
+			"item": [
+				{
+					"name": "Get Workspace",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						},
+						"description": "Returns the Workspace associated with the token used to access this resource.\n\n**API Docs**: https://docs.segmentapis.com/tag/Workspace#operation/getWorkspace"
+					}
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"description": "IAM Users endpoints - manage workspace users.",
+			"item": [
+				{
+					"name": "List Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/users?pagination.count=100",
+							"host": ["{{base_url}}"],
+							"path": ["users"],
+							"query": [
+								{
+									"key": "pagination.count",
+									"value": "100",
+									"description": "Number of items per page"
+								},
+								{
+									"key": "pagination.cursor",
+									"value": "",
+									"description": "Cursor for pagination",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns a list of users with their permissions.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Users#operation/listUsers"
+					}
+				},
+				{
+					"name": "Get User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/users/{{user_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["users", "{{user_id}}"]
+						},
+						"description": "Returns a single user by ID with their permissions.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Users#operation/getUser"
+					}
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/users?userIds.0={{user_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["users"],
+							"query": [
+								{
+									"key": "userIds.0",
+									"value": "{{user_id}}",
+									"description": "User ID to delete"
+								}
+							]
+						},
+						"description": "Removes a user from the workspace.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Users#operation/deleteUsers"
+					}
+				},
+				{
+					"name": "Update User Permissions",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"permissions\": [\n        {\n            \"roleId\": \"role_workspace_admin\",\n            \"resources\": [\n                {\n                    \"id\": \"workspace_001\",\n                    \"type\": \"WORKSPACE\"\n                }\n            ]\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/users/{{user_id}}/permissions",
+							"host": ["{{base_url}}"],
+							"path": ["users", "{{user_id}}", "permissions"]
+						},
+						"description": "Replaces all permissions for a user.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Users#operation/replacePermissionsForUser"
+					}
+				}
+			]
+		},
+		{
+			"name": "Groups",
+			"description": "IAM Groups endpoints - manage user groups.",
+			"item": [
+				{
+					"name": "List Groups",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/groups?pagination.count=100",
+							"host": ["{{base_url}}"],
+							"path": ["groups"],
+							"query": [
+								{
+									"key": "pagination.count",
+									"value": "100",
+									"description": "Number of items per page"
+								},
+								{
+									"key": "pagination.cursor",
+									"value": "",
+									"description": "Cursor for pagination",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns a list of user groups.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Groups#operation/listUserGroups"
+					}
+				},
+				{
+					"name": "Get Group",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/groups/{{group_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["groups", "{{group_id}}"]
+						},
+						"description": "Returns a single group by ID with permissions.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Groups#operation/getUserGroup"
+					}
+				},
+				{
+					"name": "List Group Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/groups/{{group_id}}/users?pagination.count=100",
+							"host": ["{{base_url}}"],
+							"path": ["groups", "{{group_id}}", "users"],
+							"query": [
+								{
+									"key": "pagination.count",
+									"value": "100",
+									"description": "Number of items per page"
+								},
+								{
+									"key": "pagination.cursor",
+									"value": "",
+									"description": "Cursor for pagination",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns users that are members of the group.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Groups#operation/listUsersFromUserGroup"
+					}
+				},
+				{
+					"name": "Add Users to Group",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"emails\": [\n        \"alice.johnson@example.com\"\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/groups/{{group_id}}/users",
+							"host": ["{{base_url}}"],
+							"path": ["groups", "{{group_id}}", "users"]
+						},
+						"description": "Adds users to a group by email.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Groups#operation/addUsersToUserGroup"
+					}
+				},
+				{
+					"name": "Remove Users from Group",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/groups/{{group_id}}/users?emails.0=alice.johnson@example.com",
+							"host": ["{{base_url}}"],
+							"path": ["groups", "{{group_id}}", "users"],
+							"query": [
+								{
+									"key": "emails.0",
+									"value": "alice.johnson@example.com",
+									"description": "Email of user to remove"
+								}
+							]
+						},
+						"description": "Removes users from a group by email.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Groups#operation/removeUsersFromUserGroup"
+					}
+				},
+				{
+					"name": "Update Group Permissions",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"permissions\": [\n        {\n            \"roleId\": \"role_source_admin\",\n            \"resources\": [\n                {\n                    \"id\": \"workspace_001\",\n                    \"type\": \"WORKSPACE\"\n                }\n            ]\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/groups/{{group_id}}/permissions",
+							"host": ["{{base_url}}"],
+							"path": ["groups", "{{group_id}}", "permissions"]
+						},
+						"description": "Replaces all permissions for a group.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Groups#operation/replacePermissionsForUserGroup"
+					}
+				}
+			]
+		},
+		{
+			"name": "Roles",
+			"description": "IAM Roles endpoints - list available roles.",
+			"item": [
+				{
+					"name": "List Roles",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/roles",
+							"host": ["{{base_url}}"],
+							"path": ["roles"]
+						},
+						"description": "Returns all available roles. No pagination.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Roles#operation/listRoles"
+					}
+				}
+			]
+		},
+		{
+			"name": "Invites",
+			"description": "IAM Invites endpoints - manage pending invitations.",
+			"item": [
+				{
+					"name": "List Invites",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/invites?pagination.count=100",
+							"host": ["{{base_url}}"],
+							"path": ["invites"],
+							"query": [
+								{
+									"key": "pagination.count",
+									"value": "100",
+									"description": "Number of items per page"
+								},
+								{
+									"key": "pagination.cursor",
+									"value": "",
+									"description": "Cursor for pagination",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns pending workspace invitations.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Invites#operation/listInvites"
+					}
+				},
+				{
+					"name": "Create Invites",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"invites\": [\n        {\n            \"email\": \"newuser@example.com\",\n            \"permissions\": [\n                {\n                    \"roleId\": \"role_source_readonly\",\n                    \"resources\": [\n                        {\n                            \"id\": \"workspace_001\",\n                            \"type\": \"WORKSPACE\"\n                        }\n                    ]\n                }\n            ]\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invites",
+							"host": ["{{base_url}}"],
+							"path": ["invites"]
+						},
+						"description": "Creates new workspace invitations.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Invites#operation/createInvites"
+					}
+				},
+				{
+					"name": "Delete Invites",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/invites?emails.0=newuser@example.com",
+							"host": ["{{base_url}}"],
+							"path": ["invites"],
+							"query": [
+								{
+									"key": "emails.0",
+									"value": "newuser@example.com",
+									"description": "Email of invite to delete"
+								}
+							]
+						},
+						"description": "Deletes pending invitations by email.\n\n**API Docs**: https://docs.segmentapis.com/tag/IAM-Invites#operation/deleteInvites"
+					}
+				}
+			]
+		},
+		{
+			"name": "Sources",
+			"description": "Sources endpoints - list data sources.",
+			"item": [
+				{
+					"name": "List Sources",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/sources?pagination.count=100",
+							"host": ["{{base_url}}"],
+							"path": ["sources"],
+							"query": [
+								{
+									"key": "pagination.count",
+									"value": "100",
+									"description": "Number of items per page"
+								},
+								{
+									"key": "pagination.cursor",
+									"value": "",
+									"description": "Cursor for pagination",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns a list of Sources.\n\n**API Docs**: https://docs.segmentapis.com/tag/Sources#operation/listSources"
+					}
+				}
+			]
+		},
+		{
+			"name": "Warehouses",
+			"description": "Warehouses endpoints - list data warehouses.",
+			"item": [
+				{
+					"name": "List Warehouses",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/warehouses?pagination.count=100",
+							"host": ["{{base_url}}"],
+							"path": ["warehouses"],
+							"query": [
+								{
+									"key": "pagination.count",
+									"value": "100",
+									"description": "Number of items per page"
+								},
+								{
+									"key": "pagination.cursor",
+									"value": "",
+									"description": "Cursor for pagination",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns a list of Warehouses.\n\n**API Docs**: https://docs.segmentapis.com/tag/Warehouses#operation/listWarehouses"
+					}
+				}
+			]
+		},
+		{
+			"name": "Functions",
+			"description": "Functions endpoints - list custom functions.",
+			"item": [
+				{
+					"name": "List Functions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/functions?pagination.count=100",
+							"host": ["{{base_url}}"],
+							"path": ["functions"],
+							"query": [
+								{
+									"key": "pagination.count",
+									"value": "100",
+									"description": "Number of items per page"
+								},
+								{
+									"key": "pagination.cursor",
+									"value": "",
+									"description": "Cursor for pagination",
+									"disabled": true
+								},
+								{
+									"key": "resourceType",
+									"value": "SOURCE",
+									"description": "Filter by resource type (SOURCE or DESTINATION)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns a list of Functions. Can filter by resourceType (SOURCE or DESTINATION).\n\n**API Docs**: https://docs.segmentapis.com/tag/Functions#operation/listFunctions"
+					}
+				}
+			]
+		},
+		{
+			"name": "Spaces",
+			"description": "Spaces endpoints - list Personas environments.",
+			"item": [
+				{
+					"name": "List Spaces",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/spaces?pagination.count=100",
+							"host": ["{{base_url}}"],
+							"path": ["spaces"],
+							"query": [
+								{
+									"key": "pagination.count",
+									"value": "100",
+									"description": "Number of items per page"
+								},
+								{
+									"key": "pagination.cursor",
+									"value": "",
+									"description": "Cursor for pagination",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns a list of Spaces (Personas environments).\n\n**API Docs**: https://docs.segmentapis.com/tag/Spaces#operation/listSpaces"
+					}
+				}
+			]
+		},
+		{
+			"name": "Audit Trail",
+			"description": "Audit Trail endpoints - usage tracking (Business tier only).",
+			"item": [
+				{
+					"name": "List Audit Events",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/vnd.segment.v1+json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/audit-events?pagination.count=100",
+							"host": ["{{base_url}}"],
+							"path": ["audit-events"],
+							"query": [
+								{
+									"key": "pagination.count",
+									"value": "100",
+									"description": "Number of items per page"
+								},
+								{
+									"key": "pagination.cursor",
+									"value": "",
+									"description": "Cursor for pagination",
+									"disabled": true
+								},
+								{
+									"key": "startTime",
+									"value": "2026-01-01T00:00:00Z",
+									"description": "Start time for events filter (RFC3339)",
+									"disabled": true
+								},
+								{
+									"key": "endTime",
+									"value": "2026-01-31T23:59:59Z",
+									"description": "End time for events filter (RFC3339)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns audit trail events. Used for usage tracking (last login).\n\n**Note**: This endpoint requires Business tier access.\n\n**API Docs**: https://docs.segmentapis.com/tag/Audit-Trail#operation/listAuditEvents"
+					}
+				}
+			]
+		}
+	]
+}

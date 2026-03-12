@@ -3,154 +3,116 @@ package connector
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
-	"github.com/conductorone/baton-sdk/pkg/pagination"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
-	"github.com/conductorone/baton-segment/pkg/segment"
+	"github.com/conductorone/baton-segment/pkg/connector/client"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"go.uber.org/zap"
 )
 
-type sourceResourceBuilder struct {
-	resourceType *v2.ResourceType
-	client       *segment.Client
+type sourceBuilder struct {
+	client *client.Client
 }
 
-func (s *sourceResourceBuilder) ResourceType(_ context.Context) *v2.ResourceType {
-	return s.resourceType
+func (b *sourceBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
+	return sourceResourceType
 }
 
-// Create a new connector resource for an Segment Source.
-func sourceResource(source *segment.Source, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
-	resource, err := rs.NewResource(
-		source.Name,
-		sourceResourceType,
-		source.ID,
-		rs.WithParentResourceID(parentResourceID),
-	)
+// List returns all sources in the workspace.
+func (b *sourceBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, opts rs.SyncOpAttrs) ([]*v2.Resource, *rs.SyncOpResults, error) {
+	l := ctxzap.Extract(ctx)
 
-	if err != nil {
-		return nil, err
-	}
-
-	return resource, nil
-}
-
-func (s *sourceResourceBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
 	if parentResourceID == nil {
-		return nil, "", nil, nil
+		return nil, nil, nil
 	}
 
-	bag, page, err := parsePageToken(pToken.Token, &v2.ResourceId{ResourceType: sourceResourceType.Id})
+	bag, err := parsePageToken(opts.PageToken.Token, &v2.ResourceId{ResourceType: sourceResourceType.Id})
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, err
 	}
 
-	sources, nextCursor, err := s.client.ListSources(ctx, page)
+	pageToken := bag.PageToken()
+
+	outputAnnotations := annotations.New()
+	response, rateLimit, err := b.client.ListSources(ctx, pageToken, client.DefaultPageSize)
+	outputAnnotations.WithRateLimiting(rateLimit)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to list sources: %w", err)
 	}
 
-	pageToken, err := bag.NextToken(nextCursor)
-	if err != nil {
-		return nil, "", nil, err
-	}
+	var resources []*v2.Resource
+	for _, source := range response.Data.Sources {
+		displayName := source.Name
+		if displayName == "" {
+			displayName = source.Slug
+		}
 
-	var rv []*v2.Resource
-	for _, source := range sources {
-		sourceCopy := source
-		sr, err := sourceResource(&sourceCopy, parentResourceID)
+		profile := map[string]interface{}{
+			"id":           source.ID,
+			"slug":         source.Slug,
+			"name":         source.Name,
+			"workspace_id": source.WorkspaceID,
+			"enabled":      source.Enabled,
+		}
+
+		resource, err := rs.NewResource(
+			displayName,
+			sourceResourceType,
+			source.ID,
+			rs.WithParentResourceID(parentResourceID),
+			rs.WithAppTrait(
+				rs.WithAppProfile(profile),
+			),
+		)
 		if err != nil {
-			return nil, "", nil, err
+			return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to create source resource: %w", err)
 		}
-
-		rv = append(rv, sr)
+		resources = append(resources, resource)
 	}
 
-	return rv, pageToken, nil, nil
+	nextToken, err := bag.NextToken(response.Data.Pagination.Next)
+	if err != nil {
+		return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, err
+	}
+
+	l.Debug("listed sources", zap.Int("count", len(resources)))
+
+	return resources, &rs.SyncOpResults{NextPageToken: nextToken, Annotations: outputAnnotations}, nil
 }
 
-func (s *sourceResourceBuilder) Entitlements(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
-	bag, page, err := parsePageToken(pToken.Token, &v2.ResourceId{ResourceType: roleResourceType.Id})
+// Entitlements returns role-based entitlements for the source.
+// Only roles containing "Source" in their name are included, using snake_case slugs
+// (e.g., source_admin).
+func (b *sourceBuilder) Entitlements(ctx context.Context, resource *v2.Resource, opts rs.SyncOpAttrs) ([]*v2.Entitlement, *rs.SyncOpResults, error) {
+	outputAnnotations := annotations.New()
+
+	entitlements, rateLimit, err := buildFilteredRoleEntitlements(ctx, b.client, opts.Session, resource, "Source")
+	outputAnnotations.WithRateLimiting(rateLimit)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to build role entitlements: %w", err)
 	}
 
-	roles, nextCursor, err := s.client.ListRoles(ctx, page)
-	if err != nil {
-		return nil, "", nil, err
-	}
-
-	pageToken, err := bag.NextToken(nextCursor)
-	if err != nil {
-		return nil, "", nil, err
-	}
-
-	var rv []*v2.Entitlement
-	for _, role := range roles {
-		if strings.Contains(role.Name, "Source") {
-			entitlement := createEntitlement(role, resource)
-			rv = append(rv, entitlement)
-		}
-	}
-
-	return rv, pageToken, nil, nil
+	return entitlements, &rs.SyncOpResults{Annotations: outputAnnotations}, nil
 }
 
-func (s *sourceResourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
-	return nil, "", nil, nil
+// Grants returns no grants for sources.
+// Grants are synced from users and groups via their permissions.
+func (b *sourceBuilder) Grants(_ context.Context, _ *v2.Resource, _ rs.SyncOpAttrs) ([]*v2.Grant, *rs.SyncOpResults, error) {
+	return nil, nil, nil
 }
 
-func (s *sourceResourceBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) (annotations.Annotations, error) {
-	roleID, resourceType := getRoleIdAndResourceType(entitlement)
-	resourceID := entitlement.Resource.Id.Resource
-	permissions, err := grantPermissions(ctx, s.client, principal, roleID, resourceType, resourceID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = s.client.UpdatePermissions(ctx, principal.Id.Resource, principal.Id.ResourceType, permissions)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"baton-segment: failed to add permission to %s %s for source resource %s: %w",
-			principal.Id.ResourceType,
-			principal.DisplayName,
-			entitlement.Resource.DisplayName,
-			err,
-		)
-	}
-
-	return nil, nil
+// Grant assigns a role to a user/group on the source.
+func (b *sourceBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) ([]*v2.Grant, annotations.Annotations, error) {
+	return grantRoleEntitlement(ctx, b.client, principal, entitlement)
 }
 
-func (s *sourceResourceBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
-	entitlement := grant.Entitlement
-	principal := grant.Principal
-	roleID, _ := getRoleIdAndResourceType(entitlement)
-
-	permissions, err := revokePermissions(ctx, s.client, principal, roleID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = s.client.UpdatePermissions(ctx, principal.Id.Resource, principal.Id.ResourceType, permissions)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"baton-segment: failed to remove permission from %s %s for source resource %s: %w",
-			principal.Id.ResourceType,
-			principal.DisplayName,
-			entitlement.Resource.DisplayName,
-			err,
-		)
-	}
-
-	return nil, nil
+// Revoke removes a role assignment from a user/group on the source.
+func (b *sourceBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
+	return revokeRoleEntitlement(ctx, b.client, grant)
 }
 
-func newSourceBuilder(client *segment.Client) *sourceResourceBuilder {
-	return &sourceResourceBuilder{
-		resourceType: sourceResourceType,
-		client:       client,
-	}
+func newSourceBuilder(c *client.Client) *sourceBuilder {
+	return &sourceBuilder{client: c}
 }

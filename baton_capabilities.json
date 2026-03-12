@@ -4,12 +4,22 @@
     {
       "resourceType":  {
         "id":  "function",
-        "displayName":  "Function"
+        "displayName":  "Function",
+        "traits":  [
+          "TRAIT_APP"
+        ],
+        "annotations":  [
+          {
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipGrants"
+          }
+        ],
+        "description":  "A Segment function"
       },
       "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
-      ]
+      ],
+      "permissions":  {}
     },
     {
       "resourceType":  {
@@ -17,12 +27,35 @@
         "displayName":  "Group",
         "traits":  [
           "TRAIT_GROUP"
-        ]
+        ],
+        "description":  "A Segment user group"
       },
       "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
-      ]
+      ],
+      "permissions":  {}
+    },
+    {
+      "resourceType":  {
+        "id":  "invite",
+        "displayName":  "Invite",
+        "traits":  [
+          "TRAIT_USER"
+        ],
+        "annotations":  [
+          {
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipEntitlementsAndGrants"
+          }
+        ],
+        "description":  "A pending workspace invitation"
+      },
+      "capabilities":  [
+        "CAPABILITY_SYNC",
+        "CAPABILITY_ACCOUNT_PROVISIONING",
+        "CAPABILITY_RESOURCE_DELETE"
+      ],
+      "permissions":  {}
     },
     {
       "resourceType":  {
@@ -30,32 +63,54 @@
         "displayName":  "Role",
         "traits":  [
           "TRAIT_ROLE"
-        ]
+        ],
+        "description":  "A Segment IAM role"
       },
       "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
-      ]
+      ],
+      "permissions":  {}
     },
     {
       "resourceType":  {
         "id":  "source",
-        "displayName":  "Source"
+        "displayName":  "Source",
+        "traits":  [
+          "TRAIT_APP"
+        ],
+        "annotations":  [
+          {
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipGrants"
+          }
+        ],
+        "description":  "A Segment data source"
       },
       "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
-      ]
+      ],
+      "permissions":  {}
     },
     {
       "resourceType":  {
         "id":  "space",
-        "displayName":  "Space"
+        "displayName":  "Space",
+        "traits":  [
+          "TRAIT_APP"
+        ],
+        "annotations":  [
+          {
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipGrants"
+          }
+        ],
+        "description":  "A Segment space (Personas environment)"
       },
       "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
-      ]
+      ],
+      "permissions":  {}
     },
     {
       "resourceType":  {
@@ -63,30 +118,65 @@
         "displayName":  "User",
         "traits":  [
           "TRAIT_USER"
-        ]
+        ],
+        "annotations":  [
+          {
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipEntitlements"
+          }
+        ],
+        "description":  "A Segment workspace user"
       },
       "capabilities":  [
-        "CAPABILITY_SYNC"
-      ]
+        "CAPABILITY_SYNC",
+        "CAPABILITY_RESOURCE_DELETE"
+      ],
+      "permissions":  {}
     },
     {
       "resourceType":  {
         "id":  "warehouse",
-        "displayName":  "Warehouse"
+        "displayName":  "Warehouse",
+        "traits":  [
+          "TRAIT_APP"
+        ],
+        "annotations":  [
+          {
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipGrants"
+          }
+        ],
+        "description":  "A Segment data warehouse"
       },
       "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
-      ]
+      ],
+      "permissions":  {}
     },
     {
       "resourceType":  {
         "id":  "workspace",
-        "displayName":  "Workspace"
+        "displayName":  "Workspace",
+        "description":  "A Segment workspace"
       },
       "capabilities":  [
-        "CAPABILITY_SYNC"
-      ]
+        "CAPABILITY_SYNC",
+        "CAPABILITY_PROVISION"
+      ],
+      "permissions":  {}
     }
-  ]
+  ],
+  "connectorCapabilities":  [
+    "CAPABILITY_PROVISION",
+    "CAPABILITY_SYNC",
+    "CAPABILITY_ACCOUNT_PROVISIONING",
+    "CAPABILITY_RESOURCE_DELETE"
+  ],
+  "credentialDetails":  {
+    "capabilityAccountProvisioning":  {
+      "supportedCredentialOptions":  [
+        "CAPABILITY_DETAIL_CREDENTIAL_OPTION_NO_PASSWORD"
+      ],
+      "preferredCredentialOption":  "CAPABILITY_DETAIL_CREDENTIAL_OPTION_NO_PASSWORD"
+    }
+  }
 }

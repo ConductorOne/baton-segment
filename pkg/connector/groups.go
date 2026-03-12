@@ -8,238 +8,326 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	ent "github.com/conductorone/baton-sdk/pkg/types/entitlement"
-	grant "github.com/conductorone/baton-sdk/pkg/types/grant"
+	gr "github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
-	"github.com/conductorone/baton-segment/pkg/segment"
+	"github.com/conductorone/baton-segment/pkg/connector/client"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	"github.com/iancoleman/strcase"
 	"go.uber.org/zap"
 )
 
+const (
+	groupMemberEntitlement = "member"
+)
+
+// getEmailFromResource extracts the primary email from a user resource's UserTrait.
+func getEmailFromResource(resource *v2.Resource) (string, error) {
+	userTrait, err := rs.GetUserTrait(resource)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user trait: %w", err)
+	}
+
+	emails := userTrait.GetEmails()
+	if len(emails) == 0 {
+		return "", fmt.Errorf("user has no email addresses")
+	}
+
+	// Return the primary email, or the first one if none is marked primary
+	for _, email := range emails {
+		if email.GetIsPrimary() {
+			return email.GetAddress(), nil
+		}
+	}
+
+	return emails[0].GetAddress(), nil
+}
+
 type groupBuilder struct {
-	resourceType *v2.ResourceType
-	client       *segment.Client
+	client *client.Client
 }
 
-const groupMembership = "member"
-
-func (g *groupBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
-	return g.resourceType
+func (b *groupBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
+	return groupResourceType
 }
 
-// Create a new connector resource for a Segment user group.
-func groupResource(group *segment.Group, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
+// List returns all the groups from the Segment workspace.
+func (b *groupBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, opts rs.SyncOpAttrs) ([]*v2.Resource, *rs.SyncOpResults, error) {
+	l := ctxzap.Extract(ctx)
+
+	bag, err := parsePageToken(opts.PageToken.Token, &v2.ResourceId{ResourceType: groupResourceType.Id})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse page token: %w", err)
+	}
+
+	pageToken := bag.PageToken()
+
+	outputAnnotations := annotations.New()
+	response, rateLimit, err := b.client.ListGroups(ctx, pageToken, client.DefaultPageSize)
+	outputAnnotations.WithRateLimiting(rateLimit)
+	if err != nil {
+		return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to list groups: %w", err)
+	}
+
+	var resources []*v2.Resource
+	for _, group := range response.Data.UserGroups {
+		r, err := groupResource(&group, parentResourceID)
+		if err != nil {
+			return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to create group resource: %w", err)
+		}
+		resources = append(resources, r)
+	}
+
+	nextToken, err := bag.NextToken(response.Data.Pagination.Next)
+	if err != nil {
+		return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to create next page token: %w", err)
+	}
+
+	l.Debug("listed groups", zap.Int("count", len(resources)), zap.String("next_token", nextToken))
+
+	return resources, &rs.SyncOpResults{NextPageToken: nextToken, Annotations: outputAnnotations}, nil
+}
+
+// groupResource creates a v2.Resource from a Segment group.
+func groupResource(group *client.Group, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
 	profile := map[string]interface{}{
-		"group_name": group.Name,
-		"group_id":   group.ID,
+		"id":           group.ID,
+		"member_count": group.MemberCount,
 	}
 
 	groupTraitOptions := []rs.GroupTraitOption{
 		rs.WithGroupProfile(profile),
 	}
 
-	ret, err := rs.NewGroupResource(
+	return rs.NewGroupResource(
 		group.Name,
 		groupResourceType,
 		group.ID,
 		groupTraitOptions,
 		rs.WithParentResourceID(parentResourceID),
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return ret, nil
 }
 
-// List returns all the user groups from the database as resource objects.
-// Groups include a Group because they are the 'shape' of a standard group.
-func (g *groupBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
-	if parentResourceID == nil {
-		return nil, "", nil, nil
-	}
-
-	bag, page, err := parsePageToken(pToken.Token, &v2.ResourceId{ResourceType: groupResourceType.Id})
-	if err != nil {
-		return nil, "", nil, err
-	}
-
-	groups, nextCursor, err := g.client.ListGroups(ctx, page)
-	if err != nil {
-		return nil, "", nil, err
-	}
-
-	pageToken, err := bag.NextToken(nextCursor)
-	if err != nil {
-		return nil, "", nil, err
-	}
-
-	var rv []*v2.Resource
-	for _, group := range groups {
-		groupCopy := group
-		gr, err := groupResource(&groupCopy, parentResourceID)
-		if err != nil {
-			return nil, "", nil, err
-		}
-		rv = append(rv, gr)
-	}
-
-	return rv, pageToken, nil, nil
+// Entitlements returns no dynamic entitlements for groups.
+// The member entitlement is handled as a static entitlement.
+func (b *groupBuilder) Entitlements(_ context.Context, _ *v2.Resource, _ rs.SyncOpAttrs) ([]*v2.Entitlement, *rs.SyncOpResults, error) {
+	return []*v2.Entitlement{}, nil, nil
 }
 
-func (g *groupBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
-	var rv []*v2.Entitlement
-	assignmentOptions := []ent.EntitlementOption{
-		ent.WithGrantableTo(userResourceType),
-		ent.WithDisplayName(fmt.Sprintf("%s group %s", resource.DisplayName, groupMembership)),
-		ent.WithDescription(fmt.Sprintf("Member of %s Segment group", resource.DisplayName)),
+// StaticEntitlements returns the member entitlement template for all groups.
+// The SDK creates one entitlement per group resource using this template.
+func (b *groupBuilder) StaticEntitlements(_ context.Context, _ rs.SyncOpAttrs) ([]*v2.Entitlement, *rs.SyncOpResults, error) {
+	entitlements := []*v2.Entitlement{
+		ent.NewAssignmentEntitlement(
+			nil,
+			groupMemberEntitlement,
+			ent.WithDisplayName("Member"),
+			ent.WithDescription("Member of the group"),
+			ent.WithGrantableTo(userResourceType),
+		),
 	}
 
-	rv = append(rv, ent.NewAssignmentEntitlement(
-		resource,
-		groupMembership,
-		assignmentOptions...,
-	))
-
-	return rv, "", nil, nil
+	return entitlements, nil, nil
 }
 
-func (g *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
-	bag, page, err := parsePageToken(pToken.Token, &v2.ResourceId{ResourceType: userResourceType.Id})
-	if err != nil {
-		return nil, "", nil, err
+// Grants returns the membership grants for a group.
+func (b *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, opts rs.SyncOpAttrs) ([]*v2.Grant, *rs.SyncOpResults, error) {
+	l := ctxzap.Extract(ctx)
+	groupID := resource.Id.Resource
+
+	// Handle pagination for multi-phase grants (members + role assignments)
+	bag := &pagination.Bag{}
+	if opts.PageToken.Token != "" {
+		if err := bag.Unmarshal(opts.PageToken.Token); err != nil {
+			return nil, nil, fmt.Errorf("failed to parse page token: %w", err)
+		}
 	}
 
-	group, err := g.client.GetGroup(ctx, resource.Id.Resource)
-	if err != nil {
-		return nil, "", nil, err
+	currentState := bag.Current()
+	// Initialize pagination state on first call (bag is empty)
+	if currentState == nil {
+		// Push in reverse order since it's a stack (last pushed = first processed)
+		bag.Push(pagination.PageState{ResourceTypeID: "group-roles", ResourceID: groupID})
+		bag.Push(pagination.PageState{ResourceTypeID: "group-members", ResourceID: groupID})
+		currentState = bag.Current()
 	}
 
-	gr, err := groupResource(group, resource.ParentResourceId)
-	if err != nil {
-		return nil, "", nil, fmt.Errorf("error creating group resource for group %s: %w", resource.Id.Resource, err)
-	}
+	var grants []*v2.Grant
+	var nextToken string
+	outputAnnotations := annotations.New()
 
-	users, nextToken, err := g.client.ListGroupMembers(ctx, resource.Id.Resource, page)
-	if err != nil {
-		return nil, "", nil, fmt.Errorf("failed to list group members: %w", err)
-	}
-
-	pageToken, err := bag.NextToken(nextToken)
-	if err != nil {
-		return nil, "", nil, err
-	}
-
-	var rv []*v2.Grant
-	for _, user := range users {
-		userCopy := user
-		ur, err := userResource(&userCopy, resource.Id)
+	switch currentState.ResourceTypeID {
+	case "group-members":
+		// Fetch group members
+		response, rateLimit, err := b.client.ListGroupUsers(ctx, groupID, bag.PageToken(), client.DefaultPageSize)
+		outputAnnotations.WithRateLimiting(rateLimit)
 		if err != nil {
-			return nil, "", nil, fmt.Errorf("error creating user resource for group %s: %w", resource.Id.Resource, err)
+			return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to list group users: %w", err)
 		}
 
-		gr := grant.NewGrant(resource, groupMembership, ur.Id)
-		rv = append(rv, gr)
-	}
-
-	for _, permission := range group.Permissions {
-		var role segment.Role
-		role.ID = permission.RoleID
-		role.Name = permission.RoleName
-		rr, err := roleResource(&role, resource.ParentResourceId)
-		if err != nil {
-			return nil, "", nil, fmt.Errorf("error creating role resource for group permissions")
+		for _, user := range response.Data.Users {
+			grant := gr.NewGrant(resource, groupMemberEntitlement, &v2.ResourceId{
+				ResourceType: userResourceType.Id,
+				Resource:     user.ID,
+			})
+			grants = append(grants, grant)
 		}
 
-		for _, r := range permission.Resources {
-			var roleResource segment.Resource
-			roleResource.ID = r.ID
-			roleResource.Type = r.Type
-			roleEntitlement := strcase.ToSnake(role.Name)
+		nextToken, err = bag.NextToken(response.Data.Pagination.Next)
+		if err != nil {
+			return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to create next page token: %w", err)
+		}
 
-			if r.Type == workspaceType {
-				rv = append(rv, grant.NewGrant(rr, roleMembership, gr.Id))
-				continue
+		l.Debug("listed group member grants", zap.String("group_id", groupID), zap.Int("count", len(grants)))
+
+	case "group-roles":
+		// Fetch group details to get role assignments
+		groupResp, rateLimit, err := b.client.GetGroup(ctx, groupID)
+		outputAnnotations.WithRateLimiting(rateLimit)
+		if err != nil {
+			return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to get group details: %w", err)
+		}
+
+		// Create grants for group -> role assignments.
+		// Mark as expandable so the SDK expands group members into individual grants.
+		// Segment roles are additive: group members inherit all roles assigned to the group.
+		expandable := gr.WithAnnotation(&v2.GrantExpandable{
+			EntitlementIds: []string{
+				fmt.Sprintf("group:%s:%s", resource.Id.Resource, groupMemberEntitlement),
+			},
+			Shallow: true,
+			ResourceTypeIds: []string{
+				userResourceType.Id,
+			},
+		})
+
+		for _, perm := range groupResp.Data.UserGroup.Permissions {
+			for _, res := range perm.Resources {
+				scopeResourceType := getScopeResourceType(res.Type)
+				if scopeResourceType == nil {
+					l.Debug("unknown scope resource type, skipping",
+						zap.String("resource_type", res.Type),
+						zap.String("resource_id", res.ID),
+					)
+					continue
+				}
+
+				var grant *v2.Grant
+				if res.Type == ResourceTypeWorkspace {
+					// Workspace-scoped permissions: grant on role:{role_id}:member
+					// Mirrors users.go to avoid dangling grants against removed workspace role entitlements.
+					roleRes := &v2.Resource{
+						Id: &v2.ResourceId{
+							ResourceType: roleResourceType.Id,
+							Resource:     perm.RoleID,
+						},
+					}
+					grant = gr.NewGrant(roleRes, roleMembership, resource.Id, expandable)
+				} else {
+					// Source/function/etc-scoped permissions: grant on scope resource with snake_case slug.
+					roleSlug, err := snakeifyRoleName(perm.RoleName)
+					if err != nil {
+						l.Debug("skipping permission with invalid role name",
+							zap.String("role_id", perm.RoleID),
+							zap.String("role_name", perm.RoleName),
+							zap.Error(err),
+						)
+						continue
+					}
+					scopeResource := &v2.Resource{
+						Id: &v2.ResourceId{
+							ResourceType: scopeResourceType.Id,
+							Resource:     res.ID,
+						},
+					}
+					grant = gr.NewGrant(scopeResource, roleSlug, resource.Id, expandable)
+				}
+				grants = append(grants, grant)
 			}
-
-			resource, err := baseResource(roleResource, resource.ParentResourceId)
-			if err != nil {
-				return nil, "", nil, fmt.Errorf("error creating %s resource", r.Type)
-			}
-
-			rv = append(rv, grant.NewGrant(resource, roleEntitlement, gr.Id))
 		}
+
+		// Pop this state, move to next (empty string means done)
+		nextToken, err = bag.NextToken("")
+		if err != nil {
+			return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to create next page token: %w", err)
+		}
+
+		l.Debug("listed group role grants", zap.String("group_id", groupID), zap.Int("count", len(grants)))
 	}
 
-	return rv, pageToken, nil, nil
+	return grants, &rs.SyncOpResults{NextPageToken: nextToken, Annotations: outputAnnotations}, nil
 }
 
-func (g *groupBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) (annotations.Annotations, error) {
+// Grant adds a user to the group.
+func (b *groupBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) ([]*v2.Grant, annotations.Annotations, error) {
 	l := ctxzap.Extract(ctx)
 
 	if principal.Id.ResourceType != userResourceType.Id {
-		l.Warn(
-			"baton-segment: only users can be granted group membership",
-			zap.String("principal_type", principal.Id.ResourceType),
-			zap.String("principal_id", principal.Id.Resource),
-		)
-		return nil, fmt.Errorf("baton-segment: only users can be granted group membership")
+		return nil, nil, fmt.Errorf("only users can be granted group membership")
 	}
 
-	userTrait, err := rs.GetUserTrait(principal)
+	// Get email from the principal resource's UserTrait
+	email, err := getEmailFromResource(principal)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to get email from principal: %w", err)
 	}
 
-	userEmail, ok := rs.GetProfileStringValue(userTrait.Profile, "login")
-	if !ok {
-		return nil, err
-	}
+	outputAnnotations := annotations.New()
+	groupID := entitlement.Resource.Id.Resource
+	userID := principal.Id.Resource
 
-	err = g.client.AddGroupMembers(ctx, entitlement.Resource.Id.Resource, userEmail)
+	l.Debug("granting group membership",
+		zap.String("group_id", groupID),
+		zap.String("user_id", userID),
+	)
+
+	_, rateLimit, err := b.client.AddUsersToGroup(ctx, groupID, []string{email})
+	outputAnnotations.WithRateLimiting(rateLimit)
 	if err != nil {
-		return nil, fmt.Errorf("baton-segment: failed to add user to group: %w", err)
+		return nil, outputAnnotations, fmt.Errorf("failed to add user to group: %w", err)
 	}
 
-	return nil, nil
+	grant := gr.NewGrant(entitlement.Resource, groupMemberEntitlement, principal.Id)
+
+	l.Debug("group membership granted successfully",
+		zap.String("group_id", groupID),
+		zap.String("user_id", userID),
+	)
+
+	return []*v2.Grant{grant}, outputAnnotations, nil
 }
 
-func (g *groupBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
+// Revoke removes a user from the group.
+func (b *groupBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
 	l := ctxzap.Extract(ctx)
 
-	entitlement := grant.Entitlement
-	principal := grant.Principal
+	groupID := grant.Entitlement.Resource.Id.Resource
+	userID := grant.Principal.Id.Resource
 
-	if principal.Id.ResourceType != userResourceType.Id {
-		l.Warn(
-			"baton-segment: only users can have group membership revoked",
-			zap.String("principal_type", principal.Id.ResourceType),
-			zap.String("principal_id", principal.Id.Resource),
-		)
-		return nil, fmt.Errorf("baton-segment: only users can have group membership revoked")
-	}
-
-	userTrait, err := rs.GetUserTrait(principal)
+	// Get email from the principal resource's UserTrait
+	email, err := getEmailFromResource(grant.Principal)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get email from principal: %w", err)
 	}
 
-	userEmail, ok := rs.GetProfileStringValue(userTrait.Profile, "login")
-	if !ok {
-		return nil, err
-	}
+	l.Debug("revoking group membership",
+		zap.String("group_id", groupID),
+		zap.String("user_id", userID),
+	)
 
-	err = g.client.RemoveGroupMember(ctx, entitlement.Resource.Id.Resource, userEmail)
+	outputAnnotations := annotations.New()
+	rateLimit, err := b.client.RemoveUsersFromGroup(ctx, groupID, []string{email})
+	outputAnnotations.WithRateLimiting(rateLimit)
 	if err != nil {
-		return nil, fmt.Errorf("baton-segment: failed to revoke group membership for user: %s: %w", principal.Id, err)
+		return outputAnnotations, fmt.Errorf("failed to remove user from group: %w", err)
 	}
 
-	return nil, nil
+	l.Debug("group membership revoked successfully",
+		zap.String("group_id", groupID),
+		zap.String("user_id", userID),
+	)
+
+	return outputAnnotations, nil
 }
 
-func newGroupBuilder(client *segment.Client) *groupBuilder {
-	return &groupBuilder{
-		resourceType: groupResourceType,
-		client:       client,
-	}
+func newGroupBuilder(c *client.Client) *groupBuilder {
+	return &groupBuilder{client: c}
 }

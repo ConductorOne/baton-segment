@@ -1,38 +1,99 @@
 name: ci
-on: pull_request
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  push:
+    branches:
+      - main
 jobs:
-  go-lint:
+  test:
     runs-on: ubuntu-latest
+    env:
+      BATON_LOG_LEVEL: debug
+      BATON_BASE_URL: ${{ vars.BATON_BASE_URL }}
+      BATON_TOKEN: ${{ secrets.BATON_ACCESS_TOKEN }}
     steps:
-      - name: Install Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: 1.22.x
       - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Run linters
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: latest
-          args: --timeout=3m
-  go-test:
-    strategy:
-      matrix:
-        go-version: [1.22.x]
-        platform: [ubuntu-latest]
-    runs-on: ${{ matrix.platform }}
-    steps:
+        uses: actions/checkout@v4
+
       - name: Install Go
-        if: success()
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: go tests
-        run: go test -v -covermode=count -json ./... > test.json
-      - name: annotate go tests
+          go-version-file: go.mod
+
+      - name: Build baton-segment
+        run: go build -o baton-segment ./cmd/baton-segment
+
+      - name: Build test server
+        run: go build -o test-server ./cmd/test-server
+
+      - name: Start test server
+        run: |
+          ./test-server &
+          sleep 3
+          curl -sf http://localhost:8080/health > /dev/null && echo "Test server is responding" || { echo "Test server failed to start"; exit 1; }
+
+      - name: Test connector sync
+        run: ./baton-segment
+
+      # Grant/Revoke: Role on source (scope resource)
+      - name: Test Source Role - grant/revoke
+        uses: ConductorOne/github-workflows/actions/sync-test@v4
+        with:
+          connector: ./baton-segment
+          baton-entitlement: ${{ vars.CI_SOURCE_ROLE_ENTITLEMENT }}
+          baton-principal: ${{ vars.CI_SOURCE_ROLE_PRINCIPAL }}
+          baton-principal-type: ${{ vars.CI_SOURCE_ROLE_PRINCIPAL_TYPE }}
+
+      # Grant/Revoke: Group membership
+      # IMPORTANT: Must run AFTER source role test because adding user to group
+      # gives them inherited roles via grant expansion
+      - name: Test Group Membership - grant/revoke
+        uses: ConductorOne/github-workflows/actions/sync-test@v4
+        with:
+          connector: ./baton-segment
+          baton-entitlement: ${{ vars.CI_GROUP_MEMBERSHIP_ENTITLEMENT }}
+          baton-principal: ${{ vars.CI_GROUP_MEMBERSHIP_PRINCIPAL }}
+          baton-principal-type: ${{ vars.CI_GROUP_MEMBERSHIP_PRINCIPAL_TYPE }}
+
+      # Provisioning: Create and delete invite
+      - name: Test Invite Provisioning - create/delete
+        uses: ConductorOne/github-workflows/actions/account-provisioning@v4
+        with:
+          connector: ./baton-segment
+          account-email: ${{ vars.CI_INVITE_EMAIL }}
+          account-profile: '{"email": "${{ vars.CI_INVITE_EMAIL }}"}'
+          account-type: ${{ vars.CI_INVITE_ACCOUNT_TYPE }}
+          search-method: ${{ vars.CI_INVITE_SEARCH_METHOD }}
+
+      # Deprovisioning: Delete user
+      - name: Sync before user delete
+        run: ./baton-segment
+
+      - name: Verify user exists before delete
+        run: |
+          USER_ID=$(baton resources -t user --output-format=json | jq -r '.resources[] | select(.resource.id.resource == "${{ vars.CI_DELETE_USER_ID }}") | .resource.id.resource')
+          if [ -z "$USER_ID" ]; then
+            echo "ERROR: ${{ vars.CI_DELETE_USER_ID }} not found before delete"
+            exit 1
+          fi
+          echo "User exists: $USER_ID"
+
+      - name: Delete user
+        run: ./baton-segment --delete-resource "${{ vars.CI_DELETE_USER_ID }}" --delete-resource-type "${{ vars.CI_DELETE_USER_TYPE }}"
+
+      - name: Sync after user delete
+        run: ./baton-segment
+
+      - name: Verify user is deleted
+        run: |
+          USER_ID=$(baton resources -t user --output-format=json | jq -r '.resources[] | select(.resource.id.resource == "${{ vars.CI_DELETE_USER_ID }}") | .resource.id.resource')
+          if [ -n "$USER_ID" ]; then
+            echo "ERROR: ${{ vars.CI_DELETE_USER_ID }} still exists after delete"
+            exit 1
+          fi
+          echo "User successfully deleted"
+
+      - name: Stop test server
         if: always()
-        uses: guyarb/golang-test-annotations@v0.5.1
-        with:
-          test-results: test.json
+        run: pkill -f test-server || true

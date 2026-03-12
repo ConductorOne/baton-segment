@@ -3,61 +3,93 @@ package connector
 import (
 	"context"
 	"fmt"
+	"io"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/cli"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
-	"github.com/conductorone/baton-sdk/pkg/uhttp"
-	"github.com/conductorone/baton-segment/pkg/segment"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	cfg "github.com/conductorone/baton-segment/pkg/config"
+	"github.com/conductorone/baton-segment/pkg/connector/client"
 )
 
-type Segment struct {
-	client *segment.Client
+type Connector struct {
+	client *client.Client
 }
 
-// ResourceSyncers returns a ResourceSyncer for each resource type that should be synced from the upstream service.
-func (s *Segment) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
-	return []connectorbuilder.ResourceSyncer{
-		newUserBuilder(s.client),
-		newWorkspaceBuilder(s.client),
-		newGroupBuilder(s.client),
-		newRoleBuilder(s.client),
-		newSourceBuilder(s.client),
-		newWarehouseBuilder(s.client),
-		newFunctionBuilder(s.client),
-		newSpaceBuilder(s.client),
+// ResourceSyncers returns a ResourceSyncer for each resource type that should be synced.
+// Workspace is first as it's the parent resource for all others.
+func (c *Connector) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncerV2 {
+	return []connectorbuilder.ResourceSyncerV2{
+		newWorkspaceBuilder(c.client),
+		newUserBuilder(c.client),
+		newGroupBuilder(c.client),
+		newRoleBuilder(c.client),
+		newInviteBuilder(c.client),
+		newSourceBuilder(c.client),
+		newWarehouseBuilder(c.client),
+		newFunctionBuilder(c.client),
+		newSpaceBuilder(c.client),
 	}
+}
+
+// Asset takes an input AssetRef and attempts to fetch it using the connector's authenticated http client.
+func (c *Connector) Asset(ctx context.Context, asset *v2.AssetRef) (string, io.ReadCloser, error) {
+	return "", nil, nil
 }
 
 // Metadata returns metadata about the connector.
-func (s *Segment) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error) {
+func (c *Connector) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error) {
 	return &v2.ConnectorMetadata{
-		DisplayName: "Segment",
-		Description: "Connector syncing Segment users, groups, roles, workspaces, sources, functions, spaces and warehouses.",
+		DisplayName:           "Twilio Segment",
+		Description:           "Connector for Twilio Segment",
+		AccountCreationSchema: accountCreationSchema(),
 	}, nil
 }
 
-// Validate is called to ensure that the connector is properly configured. It should exercise any API credentials
-// to be sure that they are valid.
-func (s *Segment) Validate(ctx context.Context) (annotations.Annotations, error) {
-	_, err := s.client.GetWorkspace(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error validating Segment connector: %w", err)
+// accountCreationSchema returns the schema for creating new user accounts (invites).
+func accountCreationSchema() *v2.ConnectorAccountCreationSchema {
+	return &v2.ConnectorAccountCreationSchema{
+		FieldMap: map[string]*v2.ConnectorAccountCreationSchema_Field{
+			"email": {
+				DisplayName: "Email Address",
+				Required:    true,
+				Description: "Email address for the new user invitation",
+				Field: &v2.ConnectorAccountCreationSchema_Field_StringField{
+					StringField: &v2.ConnectorAccountCreationSchema_StringField{},
+				},
+				Placeholder: "user@example.com",
+				Order:       0,
+			},
+		},
 	}
-	return nil, nil
+}
+
+// Validate is called to ensure that the connector is properly configured.
+func (c *Connector) Validate(ctx context.Context) (annotations.Annotations, error) {
+	outputAnnotations := annotations.New()
+
+	rateLimit, err := c.client.ValidateCredentials(ctx)
+	outputAnnotations.WithRateLimiting(rateLimit)
+	if err != nil {
+		return outputAnnotations, fmt.Errorf("failed to validate credentials: %w", err)
+	}
+
+	return outputAnnotations, nil
 }
 
 // New returns a new instance of the connector.
-func New(ctx context.Context, token string) (*Segment, error) {
-	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, ctxzap.Extract(ctx)))
+func New(ctx context.Context,
+	connectorConfig *cfg.Segment,
+	cliOpts *cli.ConnectorOpts,
+) (connectorbuilder.ConnectorBuilderV2,
+	[]connectorbuilder.Opt,
+	error,
+) {
+	c, err := client.New(ctx, connectorConfig.Token, connectorConfig.BaseUrl)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
-	client := segment.NewClient(httpClient, token)
-
-	return &Segment{
-		client: client,
-	}, nil
+	return &Connector{client: c}, nil, nil
 }
