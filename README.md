@@ -48,14 +48,14 @@ For more information, see [Segment's Public API documentation](https://docs.segm
 ```bash
 brew install conductorone/baton/baton conductorone/baton/baton-segment
 
-BATON_ACCESS_TOKEN=your-access-token baton-segment
+BATON_TOKEN=your-access-token baton-segment
 baton resources
 ```
 
 ## docker
 
 ```bash
-docker run --rm -v $(pwd):/out -e BATON_ACCESS_TOKEN=your-access-token ghcr.io/conductorone/baton-segment:latest -f "/out/sync.c1z"
+docker run --rm -v $(pwd):/out -e BATON_TOKEN=your-access-token ghcr.io/conductorone/baton-segment:latest -f "/out/sync.c1z"
 docker run --rm -v $(pwd):/out ghcr.io/conductorone/baton:latest -f "/out/sync.c1z" resources
 ```
 
@@ -65,7 +65,7 @@ docker run --rm -v $(pwd):/out ghcr.io/conductorone/baton:latest -f "/out/sync.c
 go install github.com/conductorone/baton/cmd/baton@main
 go install github.com/conductorone/baton-segment/cmd/baton-segment@main
 
-BATON_ACCESS_TOKEN=your-access-token baton-segment
+BATON_TOKEN=your-access-token baton-segment
 
 baton resources
 ```
