@@ -1,182 +1,182 @@
 {
-  "@type": "type.googleapis.com/c1.connector.v2.ConnectorCapabilities",
-  "resourceTypeCapabilities": [
+  "@type":  "type.googleapis.com/c1.connector.v2.ConnectorCapabilities",
+  "resourceTypeCapabilities":  [
     {
-      "resourceType": {
-        "id": "function",
-        "displayName": "Function",
-        "traits": [
+      "resourceType":  {
+        "id":  "function",
+        "displayName":  "Function",
+        "traits":  [
           "TRAIT_APP"
         ],
-        "annotations": [
+        "annotations":  [
           {
-            "@type": "type.googleapis.com/c1.connector.v2.SkipGrants"
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipGrants"
           }
         ],
-        "description": "A Segment function"
+        "description":  "A Segment function"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "group",
-        "displayName": "Group",
-        "traits": [
+      "resourceType":  {
+        "id":  "group",
+        "displayName":  "Group",
+        "traits":  [
           "TRAIT_GROUP"
         ],
-        "description": "A Segment user group"
+        "description":  "A Segment user group"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "invite",
-        "displayName": "Invite",
-        "traits": [
+      "resourceType":  {
+        "id":  "invite",
+        "displayName":  "Invite",
+        "traits":  [
           "TRAIT_USER"
         ],
-        "annotations": [
+        "annotations":  [
           {
-            "@type": "type.googleapis.com/c1.connector.v2.SkipEntitlementsAndGrants"
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipEntitlementsAndGrants"
           }
         ],
-        "description": "A pending workspace invitation"
+        "description":  "A pending workspace invitation"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_ACCOUNT_PROVISIONING",
         "CAPABILITY_RESOURCE_DELETE"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "role",
-        "displayName": "Role",
-        "traits": [
+      "resourceType":  {
+        "id":  "role",
+        "displayName":  "Role",
+        "traits":  [
           "TRAIT_ROLE"
         ],
-        "description": "A Segment IAM role"
+        "description":  "A Segment IAM role"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "source",
-        "displayName": "Source",
-        "traits": [
+      "resourceType":  {
+        "id":  "source",
+        "displayName":  "Source",
+        "traits":  [
           "TRAIT_APP"
         ],
-        "annotations": [
+        "annotations":  [
           {
-            "@type": "type.googleapis.com/c1.connector.v2.SkipGrants"
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipGrants"
           }
         ],
-        "description": "A Segment data source"
+        "description":  "A Segment data source"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "space",
-        "displayName": "Space",
-        "traits": [
+      "resourceType":  {
+        "id":  "space",
+        "displayName":  "Space",
+        "traits":  [
           "TRAIT_APP"
         ],
-        "annotations": [
+        "annotations":  [
           {
-            "@type": "type.googleapis.com/c1.connector.v2.SkipGrants"
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipGrants"
           }
         ],
-        "description": "A Segment space (Personas environment)"
+        "description":  "A Segment space (Personas environment)"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "user",
-        "displayName": "User",
-        "traits": [
+      "resourceType":  {
+        "id":  "user",
+        "displayName":  "User",
+        "traits":  [
           "TRAIT_USER"
         ],
-        "annotations": [
+        "annotations":  [
           {
-            "@type": "type.googleapis.com/c1.connector.v2.SkipEntitlements"
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipEntitlements"
           }
         ],
-        "description": "A Segment workspace user"
+        "description":  "A Segment workspace user"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_RESOURCE_DELETE"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "warehouse",
-        "displayName": "Warehouse",
-        "traits": [
+      "resourceType":  {
+        "id":  "warehouse",
+        "displayName":  "Warehouse",
+        "traits":  [
           "TRAIT_APP"
         ],
-        "annotations": [
+        "annotations":  [
           {
-            "@type": "type.googleapis.com/c1.connector.v2.SkipGrants"
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipGrants"
           }
         ],
-        "description": "A Segment data warehouse"
+        "description":  "A Segment data warehouse"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "workspace",
-        "displayName": "Workspace",
-        "description": "A Segment workspace"
+      "resourceType":  {
+        "id":  "workspace",
+        "displayName":  "Workspace",
+        "description":  "A Segment workspace"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
       ],
-      "permissions": {}
+      "permissions":  {}
     }
   ],
-  "connectorCapabilities": [
+  "connectorCapabilities":  [
     "CAPABILITY_PROVISION",
     "CAPABILITY_SYNC",
     "CAPABILITY_ACCOUNT_PROVISIONING",
     "CAPABILITY_RESOURCE_DELETE"
   ],
-  "credentialDetails": {
-    "capabilityAccountProvisioning": {
-      "supportedCredentialOptions": [
+  "credentialDetails":  {
+    "capabilityAccountProvisioning":  {
+      "supportedCredentialOptions":  [
         "CAPABILITY_DETAIL_CREDENTIAL_OPTION_NO_PASSWORD"
       ],
-      "preferredCredentialOption": "CAPABILITY_DETAIL_CREDENTIAL_OPTION_NO_PASSWORD"
+      "preferredCredentialOption":  "CAPABILITY_DETAIL_CREDENTIAL_OPTION_NO_PASSWORD"
     }
   }
 }
