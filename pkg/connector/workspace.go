@@ -117,21 +117,6 @@ func (b *workspaceBuilder) Grants(ctx context.Context, resource *v2.Resource, op
 	return grants, &rs.SyncOpResults{NextPageToken: nextToken, Annotations: outputAnnotations}, nil
 }
 
-// Grant handles the workspace member entitlement.
-// Only users can be workspace members; membership is implicit when a user exists in the workspace.
-func (b *workspaceBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) ([]*v2.Grant, annotations.Annotations, error) {
-	if principal.Id.ResourceType != userResourceType.Id {
-		return nil, nil, fmt.Errorf("only users can be granted workspace membership, got %s", principal.Id.ResourceType)
-	}
-	grant := gr.NewGrant(entitlement.Resource, workspaceMemberEntitlement, principal.Id)
-	return []*v2.Grant{grant}, nil, nil
-}
-
-// Revoke is not supported for workspace membership; users must be deleted instead.
-func (b *workspaceBuilder) Revoke(_ context.Context, _ *v2.Grant) (annotations.Annotations, error) {
-	return nil, fmt.Errorf("workspace membership cannot be revoked directly; delete the user instead")
-}
-
 func newWorkspaceBuilder(c *client.Client) *workspaceBuilder {
 	return &workspaceBuilder{client: c}
 }
