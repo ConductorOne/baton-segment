@@ -50,9 +50,9 @@ func (b *spaceBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId
 		}
 
 		profile := map[string]interface{}{
-			"id":   space.ID,
-			"name": space.Name,
-			"slug": space.Slug,
+			"id":           space.ID,
+			profileNameKey: space.Name,
+			"slug":         space.Slug,
 		}
 
 		resource, err := rs.NewResource(

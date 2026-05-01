@@ -78,11 +78,11 @@ func (b *functionBuilder) List(ctx context.Context, parentResourceID *v2.Resourc
 		}
 
 		profile := map[string]interface{}{
-			"id":            fn.ID,
-			"workspace_id":  fn.WorkspaceID,
-			"display_name":  fn.DisplayName,
-			"description":   fn.Description,
-			"resource_type": fn.ResourceType,
+			"id":                  fn.ID,
+			profileWorkspaceIDKey: fn.WorkspaceID,
+			"display_name":        fn.DisplayName,
+			"description":         fn.Description,
+			"resource_type":       fn.ResourceType,
 		}
 
 		resource, err := rs.NewResource(

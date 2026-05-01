@@ -13,6 +13,14 @@ const (
 	// defaultCursor is the base64-encoded default cursor for first page pagination.
 	// This matches the Segment API behavior.
 	defaultCursor = "MA=="
+
+	dataKey        = "data"
+	paginationKey  = "pagination"
+	statusSuccess  = "SUCCESS"
+	groupNameKey   = "name"
+	memberCountKey = "memberCount"
+	permissionsKey = "permissions"
+	statusKey      = "status"
 )
 
 // Pagination represents pagination information.
@@ -86,9 +94,9 @@ func (ts *TestServer) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"users": pageUsers,
-			"pagination": Pagination{
+			paginationKey: Pagination{
 				Current:      currentCursor,
 				Next:         nextCursor,
 				TotalEntries: len(users),
@@ -115,7 +123,7 @@ func (ts *TestServer) handleGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"user": user,
 		},
 	}
@@ -152,7 +160,7 @@ func (ts *TestServer) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	delete(ts.users, userID)
 
 	logf("✅ DELETE /users - deleted user: %s", userID)
-	sendJSON(w, map[string]interface{}{"data": map[string]string{"status": "SUCCESS"}})
+	sendJSON(w, map[string]interface{}{dataKey: map[string]string{statusKey: statusSuccess}})
 }
 
 // handleListGroups returns all groups with pagination.
@@ -173,8 +181,8 @@ func (ts *TestServer) handleListGroups(w http.ResponseWriter, r *http.Request) {
 	for _, g := range sortedGroups {
 		groups = append(groups, map[string]interface{}{
 			"id":          g.ID,
-			"name":        g.Name,
-			"memberCount": g.MemberCount,
+			groupNameKey:   g.Name,
+			memberCountKey: g.MemberCount,
 		})
 	}
 
@@ -206,9 +214,9 @@ func (ts *TestServer) handleListGroups(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"userGroups": pageGroups,
-			"pagination": Pagination{
+			paginationKey: Pagination{
 				Current:      currentCursor,
 				Next:         nextCursor,
 				TotalEntries: len(groups),
@@ -236,12 +244,12 @@ func (ts *TestServer) handleGetGroup(w http.ResponseWriter, r *http.Request) {
 
 	// Return group with permissions but without member list
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"userGroup": map[string]interface{}{
 				"id":          group.ID,
-				"name":        group.Name,
-				"memberCount": group.MemberCount,
-				"permissions": group.Permissions,
+				groupNameKey:   group.Name,
+				memberCountKey: group.MemberCount,
+				permissionsKey: group.Permissions,
 			},
 		},
 	}
@@ -294,9 +302,9 @@ func (ts *TestServer) handleListGroupUsers(w http.ResponseWriter, r *http.Reques
 	}
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"users": pageUsers,
-			"pagination": Pagination{
+			paginationKey: Pagination{
 				Current:      currentCursor,
 				Next:         nextCursor,
 				TotalEntries: len(users),
@@ -347,11 +355,11 @@ func (ts *TestServer) handleAddUsersToGroup(w http.ResponseWriter, r *http.Reque
 	ts.groups[groupID] = group
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"userGroup": map[string]interface{}{
 				"id":          group.ID,
-				"name":        group.Name,
-				"memberCount": group.MemberCount,
+				groupNameKey:   group.Name,
+				memberCountKey: group.MemberCount,
 			},
 		},
 	}
@@ -395,7 +403,7 @@ func (ts *TestServer) handleRemoveUsersFromGroup(w http.ResponseWriter, r *http.
 	ts.groups[groupID] = group
 
 	logf("✅ DELETE /groups/%s/users - removed users: %v", groupID, emails)
-	sendJSON(w, map[string]interface{}{"data": map[string]string{"status": "SUCCESS"}})
+	sendJSON(w, map[string]interface{}{dataKey: map[string]string{statusKey: statusSuccess}})
 }
 
 // handleListRoles returns all roles.
@@ -411,7 +419,7 @@ func (ts *TestServer) handleListRoles(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(roles, func(i, j int) bool { return roles[i].ID < roles[j].ID })
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"roles": roles,
 		},
 	}
@@ -461,9 +469,9 @@ func (ts *TestServer) handleListInvites(w http.ResponseWriter, r *http.Request) 
 	}
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"invites": pageInvites,
-			"pagination": Pagination{
+			paginationKey: Pagination{
 				Current:      currentCursor,
 				Next:         nextCursor,
 				TotalEntries: len(invites),
@@ -498,7 +506,7 @@ func (ts *TestServer) handleCreateInvites(w http.ResponseWriter, r *http.Request
 	}
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"emails": emails,
 		},
 	}
@@ -527,7 +535,7 @@ func (ts *TestServer) handleDeleteInvites(w http.ResponseWriter, r *http.Request
 	}
 
 	logf("✅ DELETE /invites - deleted invites: %v", emails)
-	sendJSON(w, map[string]interface{}{"data": map[string]string{"status": "SUCCESS"}})
+	sendJSON(w, map[string]interface{}{dataKey: map[string]string{statusKey: statusSuccess}})
 }
 
 // handleGetWorkspace returns the current workspace.
@@ -536,7 +544,7 @@ func (ts *TestServer) handleGetWorkspace(w http.ResponseWriter, r *http.Request)
 	defer ts.mu.RUnlock()
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"workspace": ts.workspace,
 		},
 	}
@@ -579,9 +587,9 @@ func (ts *TestServer) handleListSources(w http.ResponseWriter, r *http.Request) 
 	}
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"sources": pageSources,
-			"pagination": Pagination{
+			paginationKey: Pagination{
 				Current:      currentCursor,
 				Next:         nextCursor,
 				TotalEntries: len(sources),
@@ -627,9 +635,9 @@ func (ts *TestServer) handleListWarehouses(w http.ResponseWriter, r *http.Reques
 	}
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"warehouses": pageWarehouses,
-			"pagination": Pagination{
+			paginationKey: Pagination{
 				Current:      currentCursor,
 				Next:         nextCursor,
 				TotalEntries: len(warehouses),
@@ -678,9 +686,9 @@ func (ts *TestServer) handleListFunctions(w http.ResponseWriter, r *http.Request
 	}
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"functions": pageFunctions,
-			"pagination": Pagination{
+			paginationKey: Pagination{
 				Current:      currentCursor,
 				Next:         nextCursor,
 				TotalEntries: len(functions),
@@ -726,9 +734,9 @@ func (ts *TestServer) handleListSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
+		dataKey: map[string]interface{}{
 			"spaces": pageSpaces,
-			"pagination": Pagination{
+			paginationKey: Pagination{
 				Current:      currentCursor,
 				Next:         nextCursor,
 				TotalEntries: len(spaces),
@@ -774,8 +782,8 @@ func (ts *TestServer) handleAddUserPermissions(w http.ResponseWriter, r *http.Re
 	ts.users[userID] = user
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
-			"permissions": user.Permissions,
+		dataKey: map[string]interface{}{
+			permissionsKey: user.Permissions,
 		},
 	}
 
@@ -817,8 +825,8 @@ func (ts *TestServer) handleReplaceUserPermissions(w http.ResponseWriter, r *htt
 	ts.users[userID] = user
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
-			"permissions": user.Permissions,
+		dataKey: map[string]interface{}{
+			permissionsKey: user.Permissions,
 		},
 	}
 
@@ -860,8 +868,8 @@ func (ts *TestServer) handleAddGroupPermissions(w http.ResponseWriter, r *http.R
 	ts.groups[groupID] = group
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
-			"permissions": group.Permissions,
+		dataKey: map[string]interface{}{
+			permissionsKey: group.Permissions,
 		},
 	}
 
@@ -903,8 +911,8 @@ func (ts *TestServer) handleReplaceGroupPermissions(w http.ResponseWriter, r *ht
 	ts.groups[groupID] = group
 
 	response := map[string]interface{}{
-		"data": map[string]interface{}{
-			"permissions": group.Permissions,
+		dataKey: map[string]interface{}{
+			permissionsKey: group.Permissions,
 		},
 	}
 

@@ -50,13 +50,13 @@ func (b *warehouseBuilder) List(ctx context.Context, parentResourceID *v2.Resour
 		}
 
 		profile := map[string]interface{}{
-			"id":           warehouse.ID,
-			"workspace_id": warehouse.WorkspaceID,
-			"enabled":      warehouse.Enabled,
+			"id":                  warehouse.ID,
+			profileWorkspaceIDKey: warehouse.WorkspaceID,
+			"enabled":             warehouse.Enabled,
 		}
 		if warehouse.Metadata != nil {
 			profile["slug"] = warehouse.Metadata.Slug
-			profile["name"] = warehouse.Metadata.Name
+			profile[profileNameKey] = warehouse.Metadata.Name
 			profile["description"] = warehouse.Metadata.Description
 		}
 

@@ -20,6 +20,11 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	profileNameKey        = "name"
+	profileWorkspaceIDKey = "workspace_id"
+)
+
 // errRoleNotFound is returned when a role slug cannot be matched to any existing role.
 var errRoleNotFound = errors.New("role not found")
 
