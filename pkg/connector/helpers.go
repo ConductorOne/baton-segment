@@ -105,7 +105,7 @@ func snakeifyRoleName(name string) (string, error) {
 	var result strings.Builder
 	for _, r := range slug {
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' {
-			result.WriteRune(r)
+			_, _ = result.WriteRune(r)
 		}
 	}
 
