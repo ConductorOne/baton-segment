@@ -50,11 +50,11 @@ func (b *sourceBuilder) List(ctx context.Context, parentResourceID *v2.ResourceI
 		}
 
 		profile := map[string]interface{}{
-			"id":           source.ID,
-			"slug":         source.Slug,
-			"name":         source.Name,
-			"workspace_id": source.WorkspaceID,
-			"enabled":      source.Enabled,
+			"id":                  source.ID,
+			"slug":                source.Slug,
+			profileNameKey:        source.Name,
+			profileWorkspaceIDKey: source.WorkspaceID,
+			"enabled":             source.Enabled,
 		}
 
 		resource, err := rs.NewResource(

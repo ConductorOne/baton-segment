@@ -61,8 +61,8 @@ func (b *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId,
 // userResource creates a v2.Resource from a Segment user.
 func userResource(user *client.User, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
 	profile := map[string]interface{}{
-		"id":   user.ID,
-		"name": user.Name,
+		"id":           user.ID,
+		profileNameKey: user.Name,
 	}
 
 	userTraitOptions := []rs.UserTraitOption{

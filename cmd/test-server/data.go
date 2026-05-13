@@ -4,6 +4,30 @@ import (
 	"sync"
 )
 
+const (
+	roleWorkspaceAdminID    = "role_workspace_admin"
+	roleWorkspaceAdminName  = "Workspace Admin"
+	roleSourceAdminID       = "role_source_admin"
+	roleSourceAdminName     = "Source Admin"
+	roleSourceReadonlyID    = "role_source_readonly"
+	roleSourceReadonlyName  = "Source Read-only"
+	roleDestAdminID         = "role_destination_admin"
+	roleDestAdminName       = "Destination Admin"
+	roleDestReadonlyID      = "role_destination_readonly"
+	roleDestReadonlyName    = "Destination Read-only"
+	roleWarehouseAdminID    = "role_warehouse_admin"
+	roleWarehouseAdminName  = "Warehouse Admin"
+	workspace001ID          = "workspace_001"
+	user001ID               = "user_001"
+	user002ID               = "user_002"
+	user005ID               = "user_005"
+	user006ID               = "user_006"
+	source002ID             = "source_002"
+	warehouse001ID          = "warehouse_001"
+	source001ID             = "source_001"
+	resourceTypeSource      = "SOURCE"
+)
+
 // User represents a Segment IAM user.
 type User struct {
 	ID          string       `json:"id"`
@@ -128,34 +152,34 @@ func (ts *TestServer) initSampleData() {
 		Name:        "Workspace Owner",
 		Description: "Full control over the workspace including billing and team management",
 	}
-	ts.roles["role_workspace_admin"] = Role{
-		ID:          "role_workspace_admin",
-		Name:        "Workspace Admin",
+	ts.roles[roleWorkspaceAdminID] = Role{
+		ID:          roleWorkspaceAdminID,
+		Name:        roleWorkspaceAdminName,
 		Description: "Administrative access to workspace settings and resources",
 	}
-	ts.roles["role_source_admin"] = Role{
-		ID:          "role_source_admin",
-		Name:        "Source Admin",
+	ts.roles[roleSourceAdminID] = Role{
+		ID:          roleSourceAdminID,
+		Name:        roleSourceAdminName,
 		Description: "Full control over sources in the workspace",
 	}
-	ts.roles["role_source_readonly"] = Role{
-		ID:          "role_source_readonly",
-		Name:        "Source Read-only",
+	ts.roles[roleSourceReadonlyID] = Role{
+		ID:          roleSourceReadonlyID,
+		Name:        roleSourceReadonlyName,
 		Description: "Read-only access to sources",
 	}
-	ts.roles["role_destination_admin"] = Role{
-		ID:          "role_destination_admin",
-		Name:        "Destination Admin",
+	ts.roles[roleDestAdminID] = Role{
+		ID:          roleDestAdminID,
+		Name:        roleDestAdminName,
 		Description: "Full control over destinations in the workspace",
 	}
-	ts.roles["role_destination_readonly"] = Role{
-		ID:          "role_destination_readonly",
-		Name:        "Destination Read-only",
+	ts.roles[roleDestReadonlyID] = Role{
+		ID:          roleDestReadonlyID,
+		Name:        roleDestReadonlyName,
 		Description: "Read-only access to destinations",
 	}
-	ts.roles["role_warehouse_admin"] = Role{
-		ID:          "role_warehouse_admin",
-		Name:        "Warehouse Admin",
+	ts.roles[roleWarehouseAdminID] = Role{
+		ID:          roleWarehouseAdminID,
+		Name:        roleWarehouseAdminName,
 		Description: "Full control over warehouses in the workspace",
 	}
 	ts.roles["role_function_admin"] = Role{
@@ -165,24 +189,24 @@ func (ts *TestServer) initSampleData() {
 	}
 
 	// Workspace resource for permissions
-	wsResource := Resource{ID: "workspace_001", Type: "WORKSPACE"}
+	wsResource := Resource{ID: workspace001ID, Type: "WORKSPACE"}
 
 	// Sample users with various roles (all permissions must have Resources)
-	ts.users["user_001"] = User{
-		ID:    "user_001",
+	ts.users[user001ID] = User{
+		ID:    user001ID,
 		Name:  "Alice Johnson",
 		Email: "alice.johnson@example.com",
 		Permissions: []Permission{
 			{RoleID: "role_workspace_owner", RoleName: "Workspace Owner", Resources: []Resource{wsResource}},
 		},
 	}
-	ts.users["user_002"] = User{
-		ID:    "user_002",
+	ts.users[user002ID] = User{
+		ID:    user002ID,
 		Name:  "Bob Smith",
 		Email: "bob.smith@example.com",
 		Permissions: []Permission{
-			{RoleID: "role_workspace_admin", RoleName: "Workspace Admin", Resources: []Resource{wsResource}},
-			{RoleID: "role_source_admin", RoleName: "Source Admin", Resources: []Resource{{ID: "source_001", Type: "SOURCE"}}},
+			{RoleID: roleWorkspaceAdminID, RoleName: roleWorkspaceAdminName, Resources: []Resource{wsResource}},
+			{RoleID: roleSourceAdminID, RoleName: roleSourceAdminName, Resources: []Resource{{ID: source001ID, Type: resourceTypeSource}}},
 		},
 	}
 	ts.users["user_003"] = User{
@@ -190,8 +214,8 @@ func (ts *TestServer) initSampleData() {
 		Name:  "Carol Williams",
 		Email: "carol.williams@example.com",
 		Permissions: []Permission{
-			{RoleID: "role_source_readonly", RoleName: "Source Read-only", Resources: []Resource{{ID: "source_002", Type: "SOURCE"}}},
-			{RoleID: "role_destination_readonly", RoleName: "Destination Read-only", Resources: []Resource{wsResource}},
+			{RoleID: roleSourceReadonlyID, RoleName: roleSourceReadonlyName, Resources: []Resource{{ID: source002ID, Type: resourceTypeSource}}},
+			{RoleID: roleDestReadonlyID, RoleName: roleDestReadonlyName, Resources: []Resource{wsResource}},
 		},
 	}
 	ts.users["user_004"] = User{
@@ -199,24 +223,24 @@ func (ts *TestServer) initSampleData() {
 		Name:  "David Brown",
 		Email: "david.brown@example.com",
 		Permissions: []Permission{
-			{RoleID: "role_destination_admin", RoleName: "Destination Admin", Resources: []Resource{wsResource}},
+			{RoleID: roleDestAdminID, RoleName: roleDestAdminName, Resources: []Resource{wsResource}},
 		},
 	}
-	ts.users["user_005"] = User{
-		ID:    "user_005",
+	ts.users[user005ID] = User{
+		ID:    user005ID,
 		Name:  "Eve Davis",
 		Email: "eve.davis@example.com",
 		Permissions: []Permission{
-			{RoleID: "role_warehouse_admin", RoleName: "Warehouse Admin", Resources: []Resource{{ID: "warehouse_001", Type: "WAREHOUSE"}}},
+			{RoleID: roleWarehouseAdminID, RoleName: roleWarehouseAdminName, Resources: []Resource{{ID: warehouse001ID, Type: "WAREHOUSE"}}},
 			{RoleID: "role_function_admin", RoleName: "Function Admin", Resources: []Resource{{ID: "func_001", Type: "FUNCTION"}}},
 		},
 	}
-	ts.users["user_006"] = User{
-		ID:    "user_006",
+	ts.users[user006ID] = User{
+		ID:    user006ID,
 		Name:  "Frank Miller",
 		Email: "frank.miller@example.com",
 		Permissions: []Permission{
-			{RoleID: "role_source_readonly", RoleName: "Source Read-only", Resources: []Resource{{ID: "source_003", Type: "SOURCE"}}},
+			{RoleID: roleSourceReadonlyID, RoleName: roleSourceReadonlyName, Resources: []Resource{{ID: "source_003", Type: resourceTypeSource}}},
 		},
 	}
 	ts.users["user_007"] = User{
@@ -224,7 +248,7 @@ func (ts *TestServer) initSampleData() {
 		Name:  "Grace Wilson",
 		Email: "grace.wilson@example.com",
 		Permissions: []Permission{
-			{RoleID: "role_destination_readonly", RoleName: "Destination Read-only", Resources: []Resource{wsResource}},
+			{RoleID: roleDestReadonlyID, RoleName: roleDestReadonlyName, Resources: []Resource{wsResource}},
 		},
 	}
 
@@ -233,37 +257,37 @@ func (ts *TestServer) initSampleData() {
 		ID:          "group_001",
 		Name:        "Engineering",
 		MemberCount: 4,
-		Members:     []string{"user_001", "user_002", "user_005", "user_006"},
+		Members:     []string{user001ID, user002ID, user005ID, user006ID},
 		Permissions: []Permission{
-			{RoleID: "role_source_admin", RoleName: "Source Admin", Resources: []Resource{{ID: "source_001", Type: "SOURCE"}}},
-			{RoleID: "role_destination_admin", RoleName: "Destination Admin", Resources: []Resource{wsResource}},
+			{RoleID: roleSourceAdminID, RoleName: roleSourceAdminName, Resources: []Resource{{ID: source001ID, Type: resourceTypeSource}}},
+			{RoleID: roleDestAdminID, RoleName: roleDestAdminName, Resources: []Resource{wsResource}},
 		},
 	}
 	ts.groups["group_002"] = Group{
 		ID:          "group_002",
 		Name:        "Data Science",
 		MemberCount: 3,
-		Members:     []string{"user_003", "user_004", "user_005"},
+		Members:     []string{"user_003", "user_004", user005ID},
 		Permissions: []Permission{
-			{RoleID: "role_warehouse_admin", RoleName: "Warehouse Admin", Resources: []Resource{{ID: "warehouse_001", Type: "WAREHOUSE"}}},
+			{RoleID: roleWarehouseAdminID, RoleName: roleWarehouseAdminName, Resources: []Resource{{ID: warehouse001ID, Type: "WAREHOUSE"}}},
 		},
 	}
 	ts.groups["group_003"] = Group{
 		ID:          "group_003",
 		Name:        "Marketing",
 		MemberCount: 2,
-		Members:     []string{"user_006", "user_007"},
+		Members:     []string{user006ID, "user_007"},
 		Permissions: []Permission{
-			{RoleID: "role_source_readonly", RoleName: "Source Read-only", Resources: []Resource{{ID: "source_002", Type: "SOURCE"}}},
+			{RoleID: roleSourceReadonlyID, RoleName: roleSourceReadonlyName, Resources: []Resource{{ID: source002ID, Type: resourceTypeSource}}},
 		},
 	}
 	ts.groups["group_004"] = Group{
 		ID:          "group_004",
 		Name:        "Administrators",
 		MemberCount: 2,
-		Members:     []string{"user_001", "user_002"},
+		Members:     []string{user001ID, user002ID},
 		Permissions: []Permission{
-			{RoleID: "role_workspace_admin", RoleName: "Workspace Admin", Resources: []Resource{wsResource}},
+			{RoleID: roleWorkspaceAdminID, RoleName: roleWorkspaceAdminName, Resources: []Resource{wsResource}},
 		},
 	}
 
@@ -274,38 +298,38 @@ func (ts *TestServer) initSampleData() {
 
 	// Workspace (single workspace per token)
 	ts.workspace = Workspace{
-		ID:   "workspace_001",
+		ID:   workspace001ID,
 		Name: "Test Workspace",
 		Slug: "test-workspace",
 	}
 
 	// Sample sources
-	ts.sources["source_001"] = Source{
-		ID:          "source_001",
+	ts.sources[source001ID] = Source{
+		ID:          source001ID,
 		Slug:        "javascript-source",
 		Name:        "JavaScript Source",
-		WorkspaceID: "workspace_001",
+		WorkspaceID: workspace001ID,
 		Enabled:     true,
 	}
-	ts.sources["source_002"] = Source{
-		ID:          "source_002",
+	ts.sources[source002ID] = Source{
+		ID:          source002ID,
 		Slug:        "python-source",
 		Name:        "Python Source",
-		WorkspaceID: "workspace_001",
+		WorkspaceID: workspace001ID,
 		Enabled:     true,
 	}
 	ts.sources["source_003"] = Source{
 		ID:          "source_003",
 		Slug:        "ios-source",
 		Name:        "iOS Source",
-		WorkspaceID: "workspace_001",
+		WorkspaceID: workspace001ID,
 		Enabled:     false,
 	}
 
 	// Sample warehouses
-	ts.warehouses["warehouse_001"] = Warehouse{
-		ID:          "warehouse_001",
-		WorkspaceID: "workspace_001",
+	ts.warehouses[warehouse001ID] = Warehouse{
+		ID:          warehouse001ID,
+		WorkspaceID: workspace001ID,
 		Enabled:     true,
 		Metadata: &WarehouseMetadata{
 			ID:          "bigquery",
@@ -316,7 +340,7 @@ func (ts *TestServer) initSampleData() {
 	}
 	ts.warehouses["warehouse_002"] = Warehouse{
 		ID:          "warehouse_002",
-		WorkspaceID: "workspace_001",
+		WorkspaceID: workspace001ID,
 		Enabled:     true,
 		Metadata: &WarehouseMetadata{
 			ID:          "snowflake",
@@ -329,14 +353,14 @@ func (ts *TestServer) initSampleData() {
 	// Sample functions
 	ts.functions["func_001"] = Function{
 		ID:           "func_001",
-		WorkspaceID:  "workspace_001",
+		WorkspaceID:  workspace001ID,
 		DisplayName:  "Data Transform Function",
 		Description:  "Transforms incoming data before sending to destinations",
-		ResourceType: "SOURCE",
+		ResourceType: resourceTypeSource,
 	}
 	ts.functions["func_002"] = Function{
 		ID:           "func_002",
-		WorkspaceID:  "workspace_001",
+		WorkspaceID:  workspace001ID,
 		DisplayName:  "Custom Destination Function",
 		Description:  "Custom destination for internal analytics",
 		ResourceType: "DESTINATION",

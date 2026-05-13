@@ -22,7 +22,7 @@ func main() {
 	// Health check (no auth required, used by CI to verify server is up)
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`)) //nolint:errcheck // health check response write failure is non-critical
+		_, _ = w.Write([]byte(`{"status":"ok"}`)) // health check response write failure is non-critical
 	})
 
 	// Workspace endpoint (exact root only — "GET /" is a subtree pattern so guard against other paths)

@@ -20,6 +20,11 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	profileNameKey        = "name"
+	profileWorkspaceIDKey = "workspace_id"
+)
+
 // errRoleNotFound is returned when a role slug cannot be matched to any existing role.
 var errRoleNotFound = errors.New("role not found")
 
@@ -100,7 +105,7 @@ func snakeifyRoleName(name string) (string, error) {
 	var result strings.Builder
 	for _, r := range slug {
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' {
-			result.WriteRune(r)
+			_, _ = result.WriteRune(r)
 		}
 	}
 

@@ -103,14 +103,6 @@
           "isRequired": true
         }
       }
-    },
-    {
-      "name": "base-url",
-      "displayName": "Base URL",
-      "description": "Base URL for the Segment API",
-      "stringField": {
-        "defaultValue": "https://api.segmentapis.com"
-      }
     }
   ],
   "displayName": "Twilio Segment",
