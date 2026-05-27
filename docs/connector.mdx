@@ -138,7 +138,14 @@ For more information, see the [Segment Access Management documentation](https://
 
     When running in service mode on Kubernetes, a self-hosted connector maintains an ongoing connection with C1, automatically syncing and uploading data at regular intervals. This data is immediately available in the C1 UI for access reviews and access requests.
 
-    ### Step 1: Set up a new Twilio Segment connector
+    
+    ### Resources
+
+    * [Official download center](https://dist.conductorone.com/ConductorOne/baton-segment): For stable binaries (Windows/Linux/macOS) and container images.
+
+    * [GitHub repository](https://github.com/conductorone/baton-segment): Access the source code, report issues, or contribute to the project.
+
+### Step 1: Set up a new Twilio Segment connector
 
     <Steps>
       <Step>
@@ -228,7 +235,7 @@ For more information, see the [Segment Access Management documentation](https://
         spec:
           containers:
           - name: baton-segment
-            image: ghcr.io/conductorone/baton-segment:latest
+            image: public.ecr.aws/conductorone/baton-segment:latest
             imagePullPolicy: IfNotPresent
             env:
             - name: BATON_HOST_ID
