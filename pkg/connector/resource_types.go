@@ -54,7 +54,10 @@ var inviteResourceType = &v2.ResourceType{
 	DisplayName: "Invite",
 	Description: "A pending workspace invitation",
 	Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_USER},
-	Annotations: annotations.New(&v2.SkipEntitlementsAndGrants{}),
+	Annotations: annotations.New(
+		&v2.SkipEntitlementsAndGrants{},
+		&v2.SkipSyncAnomalyDetection{},
+	),
 }
 
 // Resource type for data sources.
