@@ -34,7 +34,7 @@ The Twilio Segment connector supports [automatic account deprovisioning](/docs/p
 **Notes:**
 - Roles are Segment's built-in IAM roles (e.g., Workspace Owner, Source Admin, Function Admin). They are system-defined and cannot be created or deleted.
 - Warehouses and Spaces require a **Business plan** workspace.
-- Invites represent pending workspace invitations. Creating an invite sends an email to the specified address.
+- Invites represent pending workspace invitations. Creating an invite sends an email to the specified address. Invite counts fluctuate as invitations are accepted or expire, so this resource type is excluded from sync anomaly detection.
 - Groups (User Groups) are a **Business plan** feature.
 
 ## Gather Twilio Segment credentials
