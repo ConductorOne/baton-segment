@@ -6,6 +6,7 @@ import (
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/cli"
 	gr "github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/conductorone/baton-segment/pkg/connector/client"
@@ -14,7 +15,8 @@ import (
 )
 
 type userBuilder struct {
-	client *client.Client
+	client  *client.Client
+	cliOpts *cli.ConnectorOpts
 }
 
 func (b *userBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
@@ -123,6 +125,17 @@ func (b *userBuilder) Grants(ctx context.Context, resource *v2.Resource, opts rs
 				continue
 			}
 
+			targetTypeID := scopeResourceType.Id
+			if res.Type == ResourceTypeWorkspace {
+				targetTypeID = roleResourceType.Id
+			}
+			if !willSyncResourceType(b.cliOpts, targetTypeID) {
+				l.Debug("skipping cross-type grant for unsynced resource type",
+					zap.String("target_resource_type", targetTypeID),
+				)
+				continue
+			}
+
 			var grant *v2.Grant
 			if res.Type == ResourceTypeWorkspace {
 				// Workspace-scoped permissions: grant on role:{role_id}:member
@@ -187,6 +200,6 @@ func (b *userBuilder) Delete(ctx context.Context, resourceID *v2.ResourceId) (an
 	return outputAnnotations, nil
 }
 
-func newUserBuilder(c *client.Client) *userBuilder {
-	return &userBuilder{client: c}
+func newUserBuilder(c *client.Client, cliOpts *cli.ConnectorOpts) *userBuilder {
+	return &userBuilder{client: c, cliOpts: cliOpts}
 }

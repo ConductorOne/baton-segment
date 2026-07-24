@@ -6,6 +6,7 @@ import (
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/cli"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	ent "github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	gr "github.com/conductorone/baton-sdk/pkg/types/grant"
@@ -42,7 +43,8 @@ func getEmailFromResource(resource *v2.Resource) (string, error) {
 }
 
 type groupBuilder struct {
-	client *client.Client
+	client  *client.Client
+	cliOpts *cli.ConnectorOpts
 }
 
 func (b *groupBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
@@ -209,6 +211,17 @@ func (b *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, opts r
 					continue
 				}
 
+				targetTypeID := scopeResourceType.Id
+				if res.Type == ResourceTypeWorkspace {
+					targetTypeID = roleResourceType.Id
+				}
+				if !willSyncResourceType(b.cliOpts, targetTypeID) {
+					l.Debug("skipping cross-type grant for unsynced resource type",
+						zap.String("target_resource_type", targetTypeID),
+					)
+					continue
+				}
+
 				var grant *v2.Grant
 				if res.Type == ResourceTypeWorkspace {
 					// Workspace-scoped permissions: grant on role:{role_id}:member
@@ -327,6 +340,6 @@ func (b *groupBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations
 	return outputAnnotations, nil
 }
 
-func newGroupBuilder(c *client.Client) *groupBuilder {
-	return &groupBuilder{client: c}
+func newGroupBuilder(c *client.Client, cliOpts *cli.ConnectorOpts) *groupBuilder {
+	return &groupBuilder{client: c, cliOpts: cliOpts}
 }

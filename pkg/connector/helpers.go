@@ -8,6 +8,7 @@ import (
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/cli"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/session"
 	ent "github.com/conductorone/baton-sdk/pkg/types/entitlement"
@@ -361,6 +362,16 @@ func filterOutPermission(permissions []client.Permission, roleID, resourceType, 
 	}
 
 	return result
+}
+
+// willSyncResourceType reports whether resourceTypeID will be synced under the
+// current CLI options. A nil cliOpts (e.g. direct construction in tests) means
+// "sync everything".
+func willSyncResourceType(cliOpts *cli.ConnectorOpts, resourceTypeID string) bool {
+	if cliOpts == nil {
+		return true
+	}
+	return cliOpts.WillSyncResourceType(resourceTypeID)
 }
 
 // getScopeResourceType converts a Segment resource type string to the corresponding v2.ResourceType.
