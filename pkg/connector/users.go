@@ -67,8 +67,6 @@ func userResource(user *client.User, parentResourceID *v2.ResourceId) (*v2.Resou
 
 	userTraitOptions := []rs.UserTraitOption{
 		rs.WithEmail(user.Email, true),
-		rs.WithUserProfile(profile),
-		rs.WithStatus(v2.UserTrait_Status_STATUS_ENABLED), // Segment users are always enabled (deleted if inactive)
 	}
 
 	if user.Email != "" {
@@ -85,6 +83,8 @@ func userResource(user *client.User, parentResourceID *v2.ResourceId) (*v2.Resou
 		userResourceType,
 		user.ID,
 		userTraitOptions,
+		rs.WithResourceProfile(profile),
+		rs.WithResourceStatus(v2.Status_RESOURCE_STATUS_ENABLED, ""), // Segment users are always enabled (deleted if inactive)
 		rs.WithParentResourceID(parentResourceID),
 	)
 }

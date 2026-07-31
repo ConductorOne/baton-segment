@@ -63,7 +63,6 @@ func inviteResource(email string, parentResourceID *v2.ResourceId) (*v2.Resource
 	userTraitOptions := []rs.UserTraitOption{
 		rs.WithEmail(email, true),
 		rs.WithUserLogin(email),
-		rs.WithStatus(v2.UserTrait_Status_STATUS_DISABLED), // Disabled status until accepted
 	}
 
 	// Add "(Invitation)" prefix to make it clear this is a pending invite, not an active user
@@ -75,6 +74,7 @@ func inviteResource(email string, parentResourceID *v2.ResourceId) (*v2.Resource
 		inviteResourceType,
 		email, // Use email as ID
 		userTraitOptions,
+		rs.WithResourceStatus(v2.Status_RESOURCE_STATUS_DISABLED, ""), // Disabled until accepted
 		rs.WithParentResourceID(parentResourceID),
 	)
 }

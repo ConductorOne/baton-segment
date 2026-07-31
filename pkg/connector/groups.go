@@ -93,15 +93,14 @@ func groupResource(group *client.Group, parentResourceID *v2.ResourceId) (*v2.Re
 		"member_count": group.MemberCount,
 	}
 
-	groupTraitOptions := []rs.GroupTraitOption{
-		rs.WithGroupProfile(profile),
-	}
+	groupTraitOptions := []rs.GroupTraitOption{}
 
 	return rs.NewGroupResource(
 		group.Name,
 		groupResourceType,
 		group.ID,
 		groupTraitOptions,
+		rs.WithResourceProfile(profile),
 		rs.WithParentResourceID(parentResourceID),
 	)
 }

@@ -60,9 +60,8 @@ func (b *spaceBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId
 			spaceResourceType,
 			space.ID,
 			rs.WithParentResourceID(parentResourceID),
-			rs.WithAppTrait(
-				rs.WithAppProfile(profile),
-			),
+			rs.WithAppTrait(),
+			rs.WithResourceProfile(profile),
 		)
 		if err != nil {
 			return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to create space resource: %w", err)
