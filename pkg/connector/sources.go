@@ -62,9 +62,8 @@ func (b *sourceBuilder) List(ctx context.Context, parentResourceID *v2.ResourceI
 			sourceResourceType,
 			source.ID,
 			rs.WithParentResourceID(parentResourceID),
-			rs.WithAppTrait(
-				rs.WithAppProfile(profile),
-			),
+			rs.WithAppTrait(),
+			rs.WithResourceProfile(profile),
 		)
 		if err != nil {
 			return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to create source resource: %w", err)

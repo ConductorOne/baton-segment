@@ -55,15 +55,14 @@ func roleResource(role *client.Role, parentResourceID *v2.ResourceId) (*v2.Resou
 		"id": role.ID,
 	}
 
-	roleTraitOptions := []rs.RoleTraitOption{
-		rs.WithRoleProfile(profile),
-	}
+	roleTraitOptions := []rs.RoleTraitOption{}
 
 	return rs.NewRoleResource(
 		role.Name,
 		roleResourceType,
 		role.ID,
 		roleTraitOptions,
+		rs.WithResourceProfile(profile),
 		rs.WithParentResourceID(parentResourceID),
 		rs.WithDescription(role.Description),
 	)
