@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
+	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/cli"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
@@ -177,4 +178,47 @@ func TestGroupBuilder_Grants_Filtered_OnlySyncsRequestedTypes(t *testing.T) {
 	grants := driveGroupRolesPhase(t, ctx, b, groupResource)
 	got := groupRoleGrantTargetTypes(t, grants)
 	require.Equal(t, []string{"source"}, got)
+}
+
+// TestGroupBuilder_AllTargetsFiltered_KeepsOwnMemberGrants pins the regression
+// that SkipEntitlementsAndGrants on the group resource type introduced: it made
+// the SDK skip Grants entirely, which also dropped the group's own member
+// grants — data no resource-type filter should affect.
+func TestGroupBuilder_AllTargetsFiltered_KeepsOwnMemberGrants(t *testing.T) {
+	ctx := context.Background()
+
+	server := newTestGroupServer(t)
+	defer server.Close()
+
+	c, err := client.New(ctx, "test-token", server.URL)
+	require.NoError(t, err)
+
+	// "group" only: every cross-type target is excluded, so skipTargets.all().
+	cliOpts := &cli.ConnectorOpts{SyncResourceTypeIDs: []string{"group"}}
+	b := newGroupBuilder(c, newSkipCrossTypeGrants(cliOpts))
+
+	annos := annotations.Annotations(b.ResourceType(ctx).GetAnnotations())
+	require.False(t, annos.Contains(&v2.SkipEntitlementsAndGrants{}),
+		"group must not carry SkipEntitlementsAndGrants: Grants also emits its own member grants")
+	require.True(t, annos.Contains(&v2.SkipEntitlements{}),
+		"group's member entitlement comes from StaticEntitlements, so SkipEntitlements still applies")
+
+	groupResource := &v2.Resource{
+		Id: &v2.ResourceId{ResourceType: groupResourceType.Id, Resource: "g1"},
+	}
+
+	// Phase 1 (group-members) must still emit the group's own member grants.
+	memberGrants, results, err := b.Grants(ctx, groupResource, rs.SyncOpAttrs{})
+	require.NoError(t, err)
+	require.NotNil(t, results)
+	require.NotEmpty(t, memberGrants, "group member grants must survive cross-type filtering")
+	for _, g := range memberGrants {
+		// The group's own member entitlement, granted to a user principal.
+		require.Equal(t, groupResourceType.Id, g.Entitlement.Resource.Id.ResourceType)
+		require.Equal(t, userResourceType.Id, g.Principal.Id.ResourceType)
+	}
+
+	// ...while the cross-type grants are all filtered out.
+	grants := driveGroupRolesPhase(t, ctx, b, groupResource)
+	require.Empty(t, groupRoleGrantTargetTypes(t, grants))
 }

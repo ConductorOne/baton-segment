@@ -346,11 +346,15 @@ func (b *groupBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations
 func newGroupBuilder(c *client.Client, skipTargets skipCrossTypeGrants) *groupBuilder {
 	rt := proto.Clone(groupResourceType).(*v2.ResourceType)
 	annos := annotations.Annotations(rt.GetAnnotations())
-	if skipTargets.all() {
-		annos.Update(&v2.SkipEntitlementsAndGrants{})
-	} else {
-		annos.Update(&v2.SkipEntitlements{})
-	}
+	// Entitlements is empty for groups — the member entitlement comes from
+	// StaticEntitlements — so SkipEntitlements always applies.
+	//
+	// SkipEntitlementsAndGrants must NOT be set here even when every cross-type
+	// target is filtered out: Grants also emits the group's own member grants,
+	// which no resource-type filter affects. Suppressing the whole grants pass
+	// would silently drop group membership. The cross-type grants are filtered
+	// individually in Grants instead.
+	annos.Update(&v2.SkipEntitlements{})
 	rt.Annotations = annos
 
 	return &groupBuilder{client: c, skipTargets: skipTargets, resourceType: rt}
