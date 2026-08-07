@@ -139,7 +139,7 @@ func TestGroupBuilder_Grants_NoFilter_EmitsAllCrossTypeGrants(t *testing.T) {
 	}
 
 	for _, cliOpts := range testCases {
-		b := newGroupBuilder(c, cliOpts)
+		b := newGroupBuilder(c, newSkipCrossTypeGrants(cliOpts))
 
 		groupResource := &v2.Resource{
 			Id: &v2.ResourceId{
@@ -165,7 +165,7 @@ func TestGroupBuilder_Grants_Filtered_OnlySyncsRequestedTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	cliOpts := &cli.ConnectorOpts{SyncResourceTypeIDs: []string{"group", "source"}}
-	b := newGroupBuilder(c, cliOpts)
+	b := newGroupBuilder(c, newSkipCrossTypeGrants(cliOpts))
 
 	groupResource := &v2.Resource{
 		Id: &v2.ResourceId{

@@ -364,14 +364,43 @@ func filterOutPermission(permissions []client.Permission, roleID, resourceType, 
 	return result
 }
 
-// willSyncResourceType reports whether resourceTypeID will be synced under the
-// current CLI options. A nil cliOpts (e.g. direct construction in tests) means
-// "sync everything".
-func willSyncResourceType(cliOpts *cli.ConnectorOpts, resourceTypeID string) bool {
-	if cliOpts == nil {
-		return true
+// skipCrossTypeGrants is the set of cross-type target resource types excluded
+// from this sync, precomputed once so builders take booleans rather than the
+// whole *cli.ConnectorOpts.
+type skipCrossTypeGrants map[string]bool
+
+// skip reports whether grants targeting resourceTypeID should be suppressed.
+func (s skipCrossTypeGrants) skip(resourceTypeID string) bool { return s[resourceTypeID] }
+
+// all reports whether every target is excluded, meaning the grants pass can be
+// skipped entirely via SkipEntitlementsAndGrants.
+func (s skipCrossTypeGrants) all() bool {
+	for _, id := range crossTypeGrantTargets {
+		if !s[id] {
+			return false
+		}
 	}
-	return cliOpts.WillSyncResourceType(resourceTypeID)
+	return true
+}
+
+// crossTypeGrantTargets are the resource types that user/group grants can
+// reference, derived from a permission's scope.
+var crossTypeGrantTargets = []string{
+	roleResourceType.Id,
+	sourceResourceType.Id,
+	warehouseResourceType.Id,
+	functionResourceType.Id,
+	spaceResourceType.Id,
+}
+
+// newSkipCrossTypeGrants precomputes the skip decision for every target type.
+// nil cliOpts means no filter, so nothing is skipped.
+func newSkipCrossTypeGrants(cliOpts *cli.ConnectorOpts) skipCrossTypeGrants {
+	out := make(skipCrossTypeGrants, len(crossTypeGrantTargets))
+	for _, id := range crossTypeGrantTargets {
+		out[id] = cliOpts != nil && !cliOpts.WillSyncResourceType(id)
+	}
+	return out
 }
 
 // getScopeResourceType converts a Segment resource type string to the corresponding v2.ResourceType.

@@ -6,7 +6,6 @@ import (
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
-	"github.com/conductorone/baton-sdk/pkg/cli"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	ent "github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	gr "github.com/conductorone/baton-sdk/pkg/types/grant"
@@ -14,6 +13,7 @@ import (
 	"github.com/conductorone/baton-segment/pkg/connector/client"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -43,12 +43,13 @@ func getEmailFromResource(resource *v2.Resource) (string, error) {
 }
 
 type groupBuilder struct {
-	client  *client.Client
-	cliOpts *cli.ConnectorOpts
+	client       *client.Client
+	skipTargets  skipCrossTypeGrants
+	resourceType *v2.ResourceType
 }
 
 func (b *groupBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
-	return groupResourceType
+	return b.resourceType
 }
 
 // List returns all the groups from the Segment workspace.
@@ -215,7 +216,7 @@ func (b *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, opts r
 				if res.Type == ResourceTypeWorkspace {
 					targetTypeID = roleResourceType.Id
 				}
-				if !willSyncResourceType(b.cliOpts, targetTypeID) {
+				if b.skipTargets.skip(targetTypeID) {
 					l.Debug("skipping cross-type grant for unsynced resource type",
 						zap.String("target_resource_type", targetTypeID),
 					)
@@ -340,6 +341,17 @@ func (b *groupBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations
 	return outputAnnotations, nil
 }
 
-func newGroupBuilder(c *client.Client, cliOpts *cli.ConnectorOpts) *groupBuilder {
-	return &groupBuilder{client: c, cliOpts: cliOpts}
+// newGroupBuilder builds the syncer. Its only grants are cross-type, so when every target
+// resource type is excluded the grants pass is skipped entirely.
+func newGroupBuilder(c *client.Client, skipTargets skipCrossTypeGrants) *groupBuilder {
+	rt := proto.Clone(groupResourceType).(*v2.ResourceType)
+	annos := annotations.Annotations(rt.GetAnnotations())
+	if skipTargets.all() {
+		annos.Update(&v2.SkipEntitlementsAndGrants{})
+	} else {
+		annos.Update(&v2.SkipEntitlements{})
+	}
+	rt.Annotations = annos
+
+	return &groupBuilder{client: c, skipTargets: skipTargets, resourceType: rt}
 }

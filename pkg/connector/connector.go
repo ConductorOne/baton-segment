@@ -14,8 +14,8 @@ import (
 )
 
 type Connector struct {
-	client  *client.Client
-	cliOpts *cli.ConnectorOpts
+	client      *client.Client
+	skipTargets skipCrossTypeGrants
 }
 
 // ResourceSyncers returns a ResourceSyncer for each resource type that should be synced.
@@ -23,8 +23,8 @@ type Connector struct {
 func (c *Connector) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncerV2 {
 	return []connectorbuilder.ResourceSyncerV2{
 		newWorkspaceBuilder(c.client),
-		newUserBuilder(c.client, c.cliOpts),
-		newGroupBuilder(c.client, c.cliOpts),
+		newUserBuilder(c.client, c.skipTargets),
+		newGroupBuilder(c.client, c.skipTargets),
 		newRoleBuilder(c.client),
 		newInviteBuilder(c.client),
 		newSourceBuilder(c.client),
@@ -92,5 +92,5 @@ func New(ctx context.Context,
 		return nil, nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
-	return &Connector{client: c, cliOpts: cliOpts}, nil, nil
+	return &Connector{client: c, skipTargets: newSkipCrossTypeGrants(cliOpts)}, nil, nil
 }

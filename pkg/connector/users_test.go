@@ -100,7 +100,7 @@ func TestUserBuilder_Grants_NoFilter_EmitsAllCrossTypeGrants(t *testing.T) {
 	}
 
 	for _, cliOpts := range testCases {
-		b := newUserBuilder(c, cliOpts)
+		b := newUserBuilder(c, newSkipCrossTypeGrants(cliOpts))
 
 		userResource := &v2.Resource{
 			Id: &v2.ResourceId{
@@ -129,7 +129,7 @@ func TestUserBuilder_Grants_Filtered_OnlySyncsRequestedTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	cliOpts := &cli.ConnectorOpts{SyncResourceTypeIDs: []string{"user", "source"}}
-	b := newUserBuilder(c, cliOpts)
+	b := newUserBuilder(c, newSkipCrossTypeGrants(cliOpts))
 
 	userResource := &v2.Resource{
 		Id: &v2.ResourceId{
