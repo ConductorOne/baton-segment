@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
+	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/cli"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/conductorone/baton-segment/pkg/connector/client"
@@ -144,4 +145,48 @@ func TestUserBuilder_Grants_Filtered_OnlySyncsRequestedTypes(t *testing.T) {
 
 	got := userGrantTargetTypes(t, grants)
 	require.Equal(t, []string{"source"}, got)
+}
+
+// TestUserBuilder_AnnotationsTrackFilter pins the annotation swap in
+// newUserBuilder. Unlike groupBuilder, the user type's grants really are all
+// cross-type, so escalating to SkipEntitlementsAndGrants when every target is
+// excluded is sound — and is what avoids the per-user fetch entirely.
+func TestUserBuilder_AnnotationsTrackFilter(t *testing.T) {
+	ctx := context.Background()
+
+	cases := []struct {
+		name        string
+		syncTypes   []string
+		wantSkipAll bool
+	}{
+		{"no filter", nil, false},
+		{"one target in scope", []string{"user", "source"}, false},
+		{"every target excluded", []string{"user"}, true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var cliOpts *cli.ConnectorOpts
+			if tc.syncTypes != nil {
+				cliOpts = &cli.ConnectorOpts{SyncResourceTypeIDs: tc.syncTypes}
+			}
+			b := newUserBuilder(nil, newSkipCrossTypeGrants(cliOpts))
+
+			annos := annotations.Annotations(b.ResourceType(ctx).GetAnnotations())
+			if tc.wantSkipAll {
+				require.True(t, annos.Contains(&v2.SkipEntitlementsAndGrants{}),
+					"every cross-type target excluded: the whole grants pass should be skipped")
+			} else {
+				require.True(t, annos.Contains(&v2.SkipEntitlements{}))
+				require.False(t, annos.Contains(&v2.SkipEntitlementsAndGrants{}),
+					"a target is still in scope, so the grants pass must run")
+			}
+		})
+	}
+
+	// Both branches annotate, so a dropped proto.Clone would leak onto the
+	// shared package-level value.
+	shared := annotations.Annotations(userResourceType.GetAnnotations())
+	require.False(t, shared.Contains(&v2.SkipEntitlements{}))
+	require.False(t, shared.Contains(&v2.SkipEntitlementsAndGrants{}))
 }

@@ -222,3 +222,45 @@ func TestGroupBuilder_AllTargetsFiltered_KeepsOwnMemberGrants(t *testing.T) {
 	grants := driveGroupRolesPhase(t, ctx, b, groupResource)
 	require.Empty(t, groupRoleGrantTargetTypes(t, grants))
 }
+
+// TestGroupBuilder_AllTargetsFiltered_SkipsGroupFetch pins that the group-roles
+// phase does not fetch the group at all when every cross-type target is
+// excluded — otherwise it pays one GetGroup per group and discards every grant.
+func TestGroupBuilder_AllTargetsFiltered_SkipsGroupFetch(t *testing.T) {
+	ctx := context.Background()
+
+	var groupFetches int
+	base := newTestGroupServer(t)
+	defer base.Close()
+
+	// Wrap the fixture server so GET /groups/{id} can be counted. The members
+	// path ends in /users, so a suffix check distinguishes the two.
+	counting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/groups/g1" {
+			groupFetches++
+		}
+		http.Redirect(w, r, base.URL+r.URL.Path, http.StatusTemporaryRedirect)
+	}))
+	defer counting.Close()
+
+	groupResource := &v2.Resource{
+		Id: &v2.ResourceId{ResourceType: groupResourceType.Id, Resource: "g1"},
+	}
+
+	// A separate client per case: uhttp caches responses, so sharing one would
+	// let the first case's GetGroup satisfy the second without a request.
+	newBuilder := func(syncTypes []string) *groupBuilder {
+		c, err := client.New(ctx, "test-token", counting.URL)
+		require.NoError(t, err)
+		return newGroupBuilder(c, newSkipCrossTypeGrants(&cli.ConnectorOpts{SyncResourceTypeIDs: syncTypes}))
+	}
+
+	// A target still in scope: the fetch must happen.
+	driveGroupRolesPhase(t, ctx, newBuilder([]string{"user", "group", "source"}), groupResource)
+	require.Equal(t, 1, groupFetches, "group-roles phase should fetch the group when a target is in scope")
+
+	// Every target excluded: no fetch.
+	groupFetches = 0
+	driveGroupRolesPhase(t, ctx, newBuilder([]string{"group"}), groupResource)
+	require.Zero(t, groupFetches, "group-roles phase should not fetch the group when every target is excluded")
+}

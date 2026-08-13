@@ -372,8 +372,10 @@ type skipCrossTypeGrants map[string]bool
 // skip reports whether grants targeting resourceTypeID should be suppressed.
 func (s skipCrossTypeGrants) skip(resourceTypeID string) bool { return s[resourceTypeID] }
 
-// all reports whether every target is excluded, meaning the grants pass can be
-// skipped entirely via SkipEntitlementsAndGrants.
+// all reports whether every cross-type target is excluded. Only safe to act on
+// for builders whose grants are all cross-type (userBuilder); groupBuilder also
+// emits its own member grants, so it uses this to skip the group-roles fetch
+// rather than the whole grants pass.
 func (s skipCrossTypeGrants) all() bool {
 	for _, id := range crossTypeGrantTargets {
 		if !s[id] {

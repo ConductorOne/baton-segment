@@ -181,6 +181,18 @@ func (b *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, opts r
 		l.Debug("listed group member grants", zap.String("group_id", groupID), zap.Int("count", len(grants)))
 
 	case "group-roles":
+		if b.skipTargets.all() {
+			// Every cross-type target is excluded, so this phase would fetch
+			// the group and then discard all of its grants. The group's own
+			// member grants come from the group-members phase and are
+			// unaffected.
+			nextToken, err := bag.NextToken("")
+			if err != nil {
+				return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to create next page token: %w", err)
+			}
+			return nil, &rs.SyncOpResults{NextPageToken: nextToken, Annotations: outputAnnotations}, nil
+		}
+
 		// Fetch group details to get role assignments
 		groupResp, rateLimit, err := b.client.GetGroup(ctx, groupID)
 		outputAnnotations.WithRateLimiting(rateLimit)
@@ -341,8 +353,9 @@ func (b *groupBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations
 	return outputAnnotations, nil
 }
 
-// newGroupBuilder builds the syncer. Its only grants are cross-type, so when every target
-// resource type is excluded the grants pass is skipped entirely.
+// newGroupBuilder builds the syncer. Cross-type grants are filtered per-target
+// in Grants; the grants pass itself is never skipped, because Grants also emits
+// the group's own member grants.
 func newGroupBuilder(c *client.Client, skipTargets skipCrossTypeGrants) *groupBuilder {
 	rt := proto.Clone(groupResourceType).(*v2.ResourceType)
 	annos := annotations.Annotations(rt.GetAnnotations())
