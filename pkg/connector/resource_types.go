@@ -28,7 +28,8 @@ var userResourceType = &v2.ResourceType{
 	DisplayName: "User",
 	Description: "A Segment workspace user",
 	Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_USER},
-	Annotations: annotations.New(&v2.SkipEntitlements{}),
+	// newUserBuilder clones this and adds SkipEntitlements, or
+	// SkipEntitlementsAndGrants when every cross-type target is excluded.
 }
 
 // Resource type for IAM groups.
