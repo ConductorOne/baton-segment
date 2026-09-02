@@ -439,8 +439,9 @@ This Baton connector supports:
 |------------|-------------|
 | **Sync** | Syncs all IAM resources (users, groups, roles, invites, sources, warehouses, functions, spaces) |
 | **Provisioning** | Grant/revoke group membership |
-| **Role Assignment** | Grant/revoke role assignments for users and groups |
+| **Role Assignment** | Grant/revoke role assignments for users, groups, and pending invites |
 | **Account Creation** | Create new user invitations |
+| **Role on Invite** | Attach a role to an invitation at invite time (`POST /invites` with `permissions`), so people without a Segment account can be provisioned |
 | **Account Deletion** | Delete users and invitations |
 | **Usage Tracking** | Track last login via audit events (Business tier only) |
 

@@ -165,7 +165,9 @@ func buildFilteredRoleEntitlements(ctx context.Context, c *client.Client, ss ses
 			roleSlug,
 			ent.WithDisplayName(fmt.Sprintf("%s %s", resource.DisplayName, role.Name)),
 			ent.WithDescription(fmt.Sprintf("%s - %s", role.Name, role.Description)),
-			ent.WithGrantableTo(userResourceType),
+			// Invites are grantable too: the role is attached at invite time so a person
+			// without a Segment account can still be provisioned (see grantPermissionsToInvite).
+			ent.WithGrantableTo(userResourceType, inviteResourceType),
 		)
 		entitlements = append(entitlements, e)
 	}
@@ -186,8 +188,8 @@ func grantRoleEntitlement(ctx context.Context, c *client.Client, principal *v2.R
 	l := ctxzap.Extract(ctx)
 	outputAnnotations := annotations.New()
 
-	if principal.Id.ResourceType != userResourceType.Id {
-		return nil, nil, fmt.Errorf("only users can be granted role assignments, got %s", principal.Id.ResourceType)
+	if principal.Id.ResourceType != userResourceType.Id && !isInvitePrincipal(principal) {
+		return nil, nil, fmt.Errorf("only users and invites can be granted role assignments, got %s", principal.Id.ResourceType)
 	}
 
 	// Extract slug from the immutable entitlement ID (not the editable Slug field).
@@ -223,6 +225,21 @@ func grantRoleEntitlement(ctx context.Context, c *client.Client, principal *v2.R
 		},
 	}
 
+	if isInvitePrincipal(principal) {
+		// The principal has no Segment account yet, so the role is attached to the
+		// invitation itself instead of to a user.
+		email, err := principalEmail(principal)
+		if err != nil {
+			return nil, outputAnnotations, fmt.Errorf("failed to get email for invite principal: %w", err)
+		}
+
+		if err := grantPermissionsToInvite(ctx, c, email, permissions, &outputAnnotations); err != nil {
+			return nil, outputAnnotations, err
+		}
+
+		return []*v2.Grant{gr.NewGrant(entitlement.Resource, roleSlug, principal.Id)}, outputAnnotations, nil
+	}
+
 	_, rl, err := c.AddUserPermissions(ctx, principal.Id.Resource, permissions)
 	outputAnnotations.WithRateLimiting(rl)
 	if err != nil {
@@ -248,13 +265,16 @@ func grantRoleEntitlement(ctx context.Context, c *client.Client, principal *v2.R
 // 3. Fetches the principal's current permissions
 // 4. Filters out the target role/resource
 // 5. Replaces all permissions with the filtered list (PUT).
+//
+// Invite principals hold their permissions on the invitation instead of on a user, so
+// they take the revokeRoleFromInvite path.
 func revokeRoleEntitlement(ctx context.Context, c *client.Client, grant *v2.Grant) (annotations.Annotations, error) {
 	l := ctxzap.Extract(ctx)
 	outputAnnotations := annotations.New()
 
 	principal := grant.Principal
-	if principal.Id.ResourceType != userResourceType.Id {
-		return nil, fmt.Errorf("only users can have role assignments revoked, got %s", principal.Id.ResourceType)
+	if principal.Id.ResourceType != userResourceType.Id && !isInvitePrincipal(principal) {
+		return nil, fmt.Errorf("only users and invites can have role assignments revoked, got %s", principal.Id.ResourceType)
 	}
 
 	// Extract slug from the immutable entitlement ID (not the editable Slug field).
@@ -288,25 +308,22 @@ func revokeRoleEntitlement(ctx context.Context, c *client.Client, grant *v2.Gran
 		zap.String("principal_id", principal.Id.Resource),
 	)
 
-	// Fetch current permissions for the user
-	userResp, rl, err := c.GetUser(ctx, principal.Id.Resource)
-	outputAnnotations.WithRateLimiting(rl)
-	if err != nil {
-		if isNotFoundError(err) {
-			outputAnnotations.Append(&v2.GrantAlreadyRevoked{})
-			return outputAnnotations, nil
+	if isInvitePrincipal(principal) {
+		email, err := principalEmail(principal)
+		if err != nil {
+			return outputAnnotations, fmt.Errorf("failed to get email for invite principal: %w", err)
 		}
-		return outputAnnotations, fmt.Errorf("failed to get user permissions: %w", err)
+
+		if err := revokeRoleFromInvite(ctx, c, email, role.ID, scopeResourceType, scopeResourceID, &outputAnnotations); err != nil {
+			return outputAnnotations, err
+		}
+
+		return outputAnnotations, nil
 	}
-	currentPermissions := userResp.Data.User.Permissions
 
-	// Filter out the target permission and replace
-	filteredPermissions := filterOutPermission(currentPermissions, role.ID, scopeResourceType, scopeResourceID)
-
-	_, rl, err = c.ReplaceUserPermissions(ctx, principal.Id.Resource, filteredPermissions)
-	outputAnnotations.WithRateLimiting(rl)
-	if err != nil {
-		return outputAnnotations, fmt.Errorf("failed to replace user permissions: %w", err)
+	// Fetch the user's permissions, drop the target one and replace the list.
+	if err := revokeUserRolePermission(ctx, c, principal.Id.Resource, role.ID, scopeResourceType, scopeResourceID, &outputAnnotations); err != nil {
+		return outputAnnotations, err
 	}
 
 	l.Debug("role revoked successfully",
@@ -378,5 +395,256 @@ func getScopeResourceType(segmentResourceType string) *v2.ResourceType {
 		return spaceResourceType
 	default:
 		return nil
+	}
+}
+
+// isInvitePrincipal reports whether the principal is a pending invitation rather than a
+// provisioned Segment user.
+func isInvitePrincipal(principal *v2.Resource) bool {
+	return principal.GetId().GetResourceType() == inviteResourceType.Id
+}
+
+// principalEmail returns the email address for a user or invite principal.
+// Invite resources carry the email as their resource ID (see inviteResource).
+func principalEmail(principal *v2.Resource) (string, error) {
+	email, traitErr := getEmailFromResource(principal)
+	if traitErr == nil && email != "" {
+		return email, nil
+	}
+
+	if isInvitePrincipal(principal) && principal.GetId().GetResource() != "" {
+		return principal.GetId().GetResource(), nil
+	}
+
+	if traitErr != nil {
+		return "", traitErr
+	}
+	return "", fmt.Errorf("principal %s has no email address", principal.GetId().GetResource())
+}
+
+// isAlreadyInvitedError returns true when Segment refuses an invite because the email
+// already has a pending invitation. POST /invites answers 409 for a duplicate, which
+// uhttp maps to codes.AlreadyExists; the message is also checked because Segment returns
+// 422 ValidationFailure for some duplicate shapes.
+func isAlreadyInvitedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if status.Code(err) == codes.AlreadyExists {
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+	for _, needle := range []string{"already invited", "already been invited", "already exists", "duplicate"} {
+		if strings.Contains(msg, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+// grantPermissionsToInvite assigns permissions to an invited email in a single
+// POST /invites call.
+//
+// Segment's permission endpoints (POST/PUT /users/{id}/permissions) only accept
+// provisioned users, so a role cannot be granted to somebody who has not accepted their
+// invitation yet — that is the "only users can be granted role membership, got invite"
+// failure this replaces. POST /invites takes the same permission payload at invite time,
+// which is the only way to give a pending invite a role.
+//
+// Segment exposes no endpoint to read or modify a pending invite's permissions, so when
+// the email already has an invitation (the usual case: ConductorOne creates the account
+// and then grants the role) the invitation is withdrawn and re-issued carrying the
+// permissions.
+func grantPermissionsToInvite(
+	ctx context.Context,
+	c *client.Client,
+	email string,
+	permissions []client.PermissionInput,
+	outputAnnotations *annotations.Annotations,
+) error {
+	l := ctxzap.Extract(ctx)
+
+	inviteReq := []client.InviteRequest{{Email: email, Permissions: permissions}}
+
+	_, rateLimit, err := c.CreateInvites(ctx, inviteReq)
+	outputAnnotations.WithRateLimiting(rateLimit)
+	if err == nil {
+		l.Debug("invited email with permissions", zap.String("email", email))
+		return nil
+	}
+	if !isAlreadyInvitedError(err) {
+		return fmt.Errorf("failed to invite %s with permissions: %w", email, err)
+	}
+
+	l.Info("email already has a pending invitation, re-issuing it with the requested permissions",
+		zap.String("email", email),
+	)
+
+	rateLimit, deleteErr := c.DeleteInvites(ctx, []string{email})
+	outputAnnotations.WithRateLimiting(rateLimit)
+	if deleteErr != nil {
+		return fmt.Errorf("failed to withdraw the existing invitation for %s: %w", email, deleteErr)
+	}
+
+	_, rateLimit, err = c.CreateInvites(ctx, inviteReq)
+	outputAnnotations.WithRateLimiting(rateLimit)
+	if err != nil {
+		return fmt.Errorf("failed to re-issue the invitation for %s with permissions: %w", email, err)
+	}
+
+	l.Debug("re-issued invitation with permissions", zap.String("email", email))
+
+	return nil
+}
+
+// revokeRoleFromInvite removes a role that was attached to an invite principal.
+//
+// Segment bakes permissions into the invitation and offers no endpoint to read or change
+// them, so a still-pending invitation is withdrawn: that is the only way to stop the role
+// from being applied when the invitation is accepted. Re-inviting is cheap, whereas
+// leaving a pending invitation that still carries the revoked role would mean the revoke
+// silently did nothing.
+//
+// If the invitation is no longer pending, the person either accepted it — so the
+// permission is removed from the resulting user — or it was already withdrawn, which is
+// reported as an already-revoked grant.
+func revokeRoleFromInvite(
+	ctx context.Context,
+	c *client.Client,
+	email string,
+	roleID, scopeResourceType, scopeResourceID string,
+	outputAnnotations *annotations.Annotations,
+) error {
+	l := ctxzap.Extract(ctx)
+
+	pending, err := isInvitePending(ctx, c, email, outputAnnotations)
+	if err != nil {
+		return err
+	}
+
+	if pending {
+		l.Warn("withdrawing pending invitation to revoke its role: Segment cannot modify the permissions of a pending invite",
+			zap.String("email", email),
+			zap.String("role_id", roleID),
+		)
+
+		rateLimit, err := c.DeleteInvites(ctx, []string{email})
+		outputAnnotations.WithRateLimiting(rateLimit)
+		if err != nil {
+			return fmt.Errorf("failed to withdraw the invitation for %s: %w", email, err)
+		}
+		return nil
+	}
+
+	user, err := findUserByEmail(ctx, c, email, outputAnnotations)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		l.Debug("no pending invitation and no user for email, treating as already revoked", zap.String("email", email))
+		outputAnnotations.Append(&v2.GrantAlreadyRevoked{})
+		return nil
+	}
+
+	l.Debug("invitation was accepted, revoking the role from the resulting user",
+		zap.String("email", email),
+		zap.String("user_id", user.ID),
+	)
+
+	return revokeUserRolePermission(ctx, c, user.ID, roleID, scopeResourceType, scopeResourceID, outputAnnotations)
+}
+
+// revokeUserRolePermission removes a single (role, scope resource) pair from a user's
+// permissions. Segment has no endpoint to delete an individual permission, so the user's
+// permissions are fetched, filtered and replaced. A user that no longer exists is
+// reported as an already-revoked grant.
+func revokeUserRolePermission(
+	ctx context.Context,
+	c *client.Client,
+	userID string,
+	roleID, scopeResourceType, scopeResourceID string,
+	outputAnnotations *annotations.Annotations,
+) error {
+	userResp, rateLimit, err := c.GetUser(ctx, userID)
+	outputAnnotations.WithRateLimiting(rateLimit)
+	if err != nil {
+		if isNotFoundError(err) {
+			outputAnnotations.Append(&v2.GrantAlreadyRevoked{})
+			return nil
+		}
+		return fmt.Errorf("failed to get user permissions: %w", err)
+	}
+
+	filtered := filterOutPermission(userResp.Data.User.Permissions, roleID, scopeResourceType, scopeResourceID)
+
+	_, rateLimit, err = c.ReplaceUserPermissions(ctx, userID, filtered)
+	outputAnnotations.WithRateLimiting(rateLimit)
+	if err != nil {
+		return fmt.Errorf("failed to replace user permissions: %w", err)
+	}
+
+	return nil
+}
+
+// isInvitePending reports whether the email still has a pending workspace invitation.
+// GET /invites only returns emails, so the list is paged through and matched
+// case-insensitively.
+func isInvitePending(
+	ctx context.Context,
+	c *client.Client,
+	email string,
+	outputAnnotations *annotations.Annotations,
+) (bool, error) {
+	cursor := ""
+	for {
+		response, rateLimit, err := c.ListInvites(ctx, cursor, client.DefaultPageSize)
+		outputAnnotations.WithRateLimiting(rateLimit)
+		if err != nil {
+			return false, fmt.Errorf("failed to list invites: %w", err)
+		}
+
+		for _, pending := range response.Data.Invites {
+			if strings.EqualFold(pending, email) {
+				return true, nil
+			}
+		}
+
+		next := response.Data.Pagination.Next
+		if next == "" || next == cursor {
+			return false, nil
+		}
+		cursor = next
+	}
+}
+
+// findUserByEmail returns the workspace user with the given email, or nil when no user
+// has it. Segment's list users endpoint takes no email filter, so the list is paged
+// through and matched case-insensitively.
+func findUserByEmail(
+	ctx context.Context,
+	c *client.Client,
+	email string,
+	outputAnnotations *annotations.Annotations,
+) (*client.User, error) {
+	cursor := ""
+	for {
+		response, rateLimit, err := c.ListUsers(ctx, cursor, client.DefaultPageSize)
+		outputAnnotations.WithRateLimiting(rateLimit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list users: %w", err)
+		}
+
+		for _, user := range response.Data.Users {
+			if strings.EqualFold(user.Email, email) {
+				return &user, nil
+			}
+		}
+
+		next := response.Data.Pagination.Next
+		if next == "" || next == cursor {
+			return nil, nil
+		}
+		cursor = next
 	}
 }

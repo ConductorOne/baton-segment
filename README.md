@@ -125,8 +125,32 @@ Role-based entitlements are created on **scope resources** (workspace, source, w
 
 | Capability | Description |
 |------------|-------------|
-| **Grant** | Assign roles to users or groups |
-| **Revoke** | Remove role assignments from users or groups |
+| **Grant** | Assign roles to users, groups, or pending invites |
+| **Revoke** | Remove role assignments from users, groups, or pending invites |
+
+### Roles for people without a Segment account
+
+Segment's user permission endpoints (`/users/{id}/permissions`) only accept provisioned
+users, so a role cannot be attached to somebody who has not accepted their invitation yet.
+Granting a role to an `invite` principal therefore goes through `POST /invites`, which
+takes the role and its resource scope at invite time:
+
+```json
+{"invites": [{"email": "user@example.com",
+              "permissions": [{"roleId": "<roleId>",
+                               "resources": [{"id": "<workspaceId>", "type": "WORKSPACE"}]}]}]}
+```
+
+Segment exposes no endpoint to read or change the permissions of a pending invitation, so:
+
+- If the email already has a pending invitation (the usual case, because the account is
+  created first and the role granted afterwards), the invitation is withdrawn and
+  re-issued carrying the permissions. The invitee receives a fresh invitation email; the
+  earlier link is no longer valid.
+- Revoking a role from a **pending** invitation withdraws the invitation, since that is the
+  only way to stop the role from being applied when it is accepted.
+- Revoking a role from an invitation that has since been **accepted** removes the
+  permission from the resulting user.
 
 ## Account Management
 
@@ -148,6 +172,16 @@ baton grant --entitlement "group:group_001:member" --principal-type user --princ
 ```bash
 baton-segment --token $TOKEN
 baton grant --entitlement "workspace:workspace_001:workspace-owner" --principal-type user --principal "user:user_123"
+```
+
+## Example: Assign Role to Someone Without a Segment Account
+
+The role is attached to the invitation itself, so the invitee holds it as soon as they
+accept:
+
+```bash
+baton-segment --token $TOKEN
+baton grant --entitlement "role:role_workspace_admin:member" --principal-type invite --principal "invite:user@example.com"
 ```
 
 ## Example: Revoke Role from Group on Source

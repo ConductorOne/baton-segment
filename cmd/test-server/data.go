@@ -120,7 +120,7 @@ type TestServer struct {
 	users      map[string]User
 	groups     map[string]Group
 	roles      map[string]Role
-	invites    map[string]bool // email -> pending status
+	invites    map[string][]Permission // email -> permissions attached at invite time
 	sources    map[string]Source
 	warehouses map[string]Warehouse
 	functions  map[string]Function
@@ -134,7 +134,7 @@ func NewTestServer() *TestServer {
 		users:      make(map[string]User),
 		groups:     make(map[string]Group),
 		roles:      make(map[string]Role),
-		invites:    make(map[string]bool),
+		invites:    make(map[string][]Permission),
 		sources:    make(map[string]Source),
 		warehouses: make(map[string]Warehouse),
 		functions:  make(map[string]Function),
@@ -291,10 +291,13 @@ func (ts *TestServer) initSampleData() {
 		},
 	}
 
-	// Sample pending invites
-	ts.invites["pending.user1@example.com"] = true
-	ts.invites["pending.user2@example.com"] = true
-	ts.invites["newteam.member@example.com"] = true
+	// Sample pending invites. pending.user1 was invited with a workspace role attached
+	// (POST /invites carries permissions), the others were invited without one.
+	ts.invites["pending.user1@example.com"] = []Permission{
+		{RoleID: roleWorkspaceAdminID, RoleName: roleWorkspaceAdminName, Resources: []Resource{wsResource}},
+	}
+	ts.invites["pending.user2@example.com"] = nil
+	ts.invites["newteam.member@example.com"] = nil
 
 	// Workspace (single workspace per token)
 	ts.workspace = Workspace{

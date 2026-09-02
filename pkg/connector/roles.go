@@ -77,9 +77,11 @@ func (b *roleBuilder) Entitlements(_ context.Context, _ *v2.Resource, _ rs.SyncO
 // The SDK expands this once per role resource, matching the baton-segment grant model: role:{id}:member.
 func (b *roleBuilder) StaticEntitlements(_ context.Context, _ rs.SyncOpAttrs) ([]*v2.Entitlement, *rs.SyncOpResults, error) {
 	e := v2.Entitlement_builder{
-		Slug:        roleMembership,
-		Purpose:     v2.Entitlement_PURPOSE_VALUE_ASSIGNMENT,
-		GrantableTo: []*v2.ResourceType{userResourceType},
+		Slug:    roleMembership,
+		Purpose: v2.Entitlement_PURPOSE_VALUE_ASSIGNMENT,
+		// Invites are grantable too: the role is attached at invite time so a person
+		// without a Segment account can still be provisioned (see grantPermissionsToInvite).
+		GrantableTo: []*v2.ResourceType{userResourceType, inviteResourceType},
 	}.Build()
 	return []*v2.Entitlement{e}, nil, nil
 }
@@ -90,14 +92,18 @@ func (b *roleBuilder) Grants(_ context.Context, _ *v2.Resource, _ rs.SyncOpAttrs
 	return nil, nil, nil
 }
 
-// Grant assigns a workspace-scoped role to a user.
+// Grant assigns a workspace-scoped role to a user or to a pending invitation.
 // The role ID is the entitlement's resource ID; the workspace ID is its parent.
+//
+// Invite principals have no Segment account to attach permissions to, so the role travels
+// with the invitation (POST /invites) instead of going through the user permissions
+// endpoint. See grantPermissionsToInvite.
 func (b *roleBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) ([]*v2.Grant, annotations.Annotations, error) {
 	l := ctxzap.Extract(ctx)
 	outputAnnotations := annotations.New()
 
-	if principal.Id.ResourceType != userResourceType.Id {
-		return nil, nil, fmt.Errorf("only users can be granted role membership, got %s", principal.Id.ResourceType)
+	if principal.Id.ResourceType != userResourceType.Id && !isInvitePrincipal(principal) {
+		return nil, nil, fmt.Errorf("only users and invites can be granted role membership, got %s", principal.Id.ResourceType)
 	}
 
 	roleID := entitlement.Resource.Id.Resource
@@ -110,7 +116,8 @@ func (b *roleBuilder) Grant(ctx context.Context, principal *v2.Resource, entitle
 	l.Debug("granting role membership",
 		zap.String("role_id", roleID),
 		zap.String("workspace_id", workspaceID),
-		zap.String("user_id", principal.Id.Resource),
+		zap.String("principal_type", principal.Id.ResourceType),
+		zap.String("principal_id", principal.Id.Resource),
 	)
 
 	permissions := []client.PermissionInput{
@@ -122,25 +129,36 @@ func (b *roleBuilder) Grant(ctx context.Context, principal *v2.Resource, entitle
 		},
 	}
 
-	var addRL *v2.RateLimitDescription
-	_, addRL, err = b.client.AddUserPermissions(ctx, principal.Id.Resource, permissions)
-	outputAnnotations.WithRateLimiting(addRL)
-	if err != nil {
-		return nil, outputAnnotations, fmt.Errorf("failed to grant role membership: %w", err)
+	if isInvitePrincipal(principal) {
+		email, err := principalEmail(principal)
+		if err != nil {
+			return nil, outputAnnotations, fmt.Errorf("failed to get email for invite principal: %w", err)
+		}
+
+		if err := grantPermissionsToInvite(ctx, b.client, email, permissions, &outputAnnotations); err != nil {
+			return nil, outputAnnotations, err
+		}
+	} else {
+		var addRL *v2.RateLimitDescription
+		_, addRL, err = b.client.AddUserPermissions(ctx, principal.Id.Resource, permissions)
+		outputAnnotations.WithRateLimiting(addRL)
+		if err != nil {
+			return nil, outputAnnotations, fmt.Errorf("failed to grant role membership: %w", err)
+		}
 	}
 
 	grant := gr.NewGrant(entitlement.Resource, roleMembership, principal.Id)
 	return []*v2.Grant{grant}, outputAnnotations, nil
 }
 
-// Revoke removes a workspace-scoped role from a user.
+// Revoke removes a workspace-scoped role from a user or from a pending invitation.
 func (b *roleBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
 	l := ctxzap.Extract(ctx)
 	outputAnnotations := annotations.New()
 
 	principal := grant.Principal
-	if principal.Id.ResourceType != userResourceType.Id {
-		return nil, fmt.Errorf("only users can have role membership revoked, got %s", principal.Id.ResourceType)
+	if principal.Id.ResourceType != userResourceType.Id && !isInvitePrincipal(principal) {
+		return nil, fmt.Errorf("only users and invites can have role membership revoked, got %s", principal.Id.ResourceType)
 	}
 
 	roleID := grant.Entitlement.Resource.Id.Resource
@@ -153,25 +171,25 @@ func (b *roleBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.
 	l.Debug("revoking role membership",
 		zap.String("role_id", roleID),
 		zap.String("workspace_id", workspaceID),
-		zap.String("user_id", principal.Id.Resource),
+		zap.String("principal_type", principal.Id.ResourceType),
+		zap.String("principal_id", principal.Id.Resource),
 	)
 
-	userResp, rl, err := b.client.GetUser(ctx, principal.Id.Resource)
-	outputAnnotations.WithRateLimiting(rl)
-	if err != nil {
-		if isNotFoundError(err) {
-			outputAnnotations.Append(&v2.GrantAlreadyRevoked{})
-			return outputAnnotations, nil
+	if isInvitePrincipal(principal) {
+		email, err := principalEmail(principal)
+		if err != nil {
+			return outputAnnotations, fmt.Errorf("failed to get email for invite principal: %w", err)
 		}
-		return outputAnnotations, fmt.Errorf("failed to get user permissions: %w", err)
+
+		if err := revokeRoleFromInvite(ctx, b.client, email, roleID, ResourceTypeWorkspace, workspaceID, &outputAnnotations); err != nil {
+			return outputAnnotations, err
+		}
+
+		return outputAnnotations, nil
 	}
 
-	filtered := filterOutPermission(userResp.Data.User.Permissions, roleID, ResourceTypeWorkspace, workspaceID)
-
-	_, rl, err = b.client.ReplaceUserPermissions(ctx, principal.Id.Resource, filtered)
-	outputAnnotations.WithRateLimiting(rl)
-	if err != nil {
-		return outputAnnotations, fmt.Errorf("failed to revoke role membership: %w", err)
+	if err := revokeUserRolePermission(ctx, b.client, principal.Id.Resource, roleID, ResourceTypeWorkspace, workspaceID, &outputAnnotations); err != nil {
+		return outputAnnotations, err
 	}
 
 	return outputAnnotations, nil

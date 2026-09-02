@@ -490,7 +490,8 @@ func (ts *TestServer) handleCreateInvites(w http.ResponseWriter, r *http.Request
 
 	var req struct {
 		Invites []struct {
-			Email string `json:"email"`
+			Email       string       `json:"email"`
+			Permissions []Permission `json:"permissions,omitempty"`
 		} `json:"invites"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -499,10 +500,24 @@ func (ts *TestServer) handleCreateInvites(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Segment rejects an invitation for an email that already has one pending, and offers
+	// no way to change a pending invite's permissions. Mirror that here so the connector's
+	// withdraw-and-re-issue path is exercised.
+	for _, invite := range req.Invites {
+		if _, pending := ts.invites[invite.Email]; pending {
+			logf("❌ POST /invites - %s already has a pending invitation", invite.Email)
+			http.Error(w,
+				`{"errors":[{"type":"Conflict","message":"user has already been invited to this workspace"}]}`,
+				http.StatusConflict)
+			return
+		}
+	}
+
 	var emails []string
 	for _, invite := range req.Invites {
-		ts.invites[invite.Email] = true
+		ts.invites[invite.Email] = invite.Permissions
 		emails = append(emails, invite.Email)
+		logf("   invite %s permissions: %+v", invite.Email, invite.Permissions)
 	}
 
 	response := map[string]interface{}{
