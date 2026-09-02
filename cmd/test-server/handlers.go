@@ -500,14 +500,14 @@ func (ts *TestServer) handleCreateInvites(w http.ResponseWriter, r *http.Request
 	}
 
 	for _, invite := range req.Invites {
-		if ts.invites[invite.Email] {
+		if ts.invites[strings.ToLower(invite.Email)] {
 			// Verified against the live Segment API.
 			logf("❌ POST /invites - already invited: %s", invite.Email)
 			http.Error(w, `{"errors":[{"type":"bad-request","message":"One or more email address was already invited to join workspace."}]}`, http.StatusBadRequest)
 			return
 		}
 		for _, user := range ts.users {
-			if user.Email == invite.Email {
+			if strings.EqualFold(user.Email, invite.Email) {
 				// Verified against the live Segment API: identical body to the
 				// already-invited case above - Segment does not distinguish them.
 				logf("❌ POST /invites - already a member: %s", invite.Email)
@@ -519,7 +519,7 @@ func (ts *TestServer) handleCreateInvites(w http.ResponseWriter, r *http.Request
 
 	var emails []string
 	for _, invite := range req.Invites {
-		ts.invites[invite.Email] = true
+		ts.invites[strings.ToLower(invite.Email)] = true
 		emails = append(emails, invite.Email)
 	}
 
@@ -549,15 +549,7 @@ func (ts *TestServer) handleDeleteInvites(w http.ResponseWriter, r *http.Request
 	}
 
 	for _, email := range emails {
-		if !ts.invites[email] {
-			logf("❌ DELETE /invites - not found: %s", email)
-			http.Error(w, `{"errors":[{"type":"not_found","message":"No pending invite for `+email+`"}]}`, http.StatusNotFound)
-			return
-		}
-	}
-
-	for _, email := range emails {
-		delete(ts.invites, email)
+		delete(ts.invites, strings.ToLower(email))
 	}
 
 	logf("✅ DELETE /invites - deleted invites: %v", emails)

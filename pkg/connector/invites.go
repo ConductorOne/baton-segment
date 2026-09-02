@@ -135,9 +135,13 @@ func (b *inviteBuilder) CreateAccount(
 			return nil, nil, outputAnnotations, fmt.Errorf("baton-segment: create invite %s: %w", email, err)
 		}
 
-		existingEmail, found, lookupErr := b.client.FindPendingInviteByEmail(ctx, email)
+		existingEmail, found, scanRateLimit, lookupErr := b.client.FindPendingInviteByEmail(ctx, email)
+		outputAnnotations.WithRateLimiting(scanRateLimit)
 		if lookupErr != nil {
 			l.Debug("failed to scan pending invites for duplicate lookup", zap.String("email", email), zap.Error(lookupErr))
+			return &v2.CreateAccountResponse_ActionRequiredResult{
+				Message: fmt.Sprintf("Segment reported %s as a duplicate, but the pending-invite lookup used to confirm whether it's already a full member failed. Retry account creation.", email),
+			}, nil, outputAnnotations, nil
 		}
 		if found {
 			existingInvite, resErr := inviteResource(existingEmail, nil)

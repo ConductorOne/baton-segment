@@ -318,23 +318,28 @@ func (c *Client) ListInvites(ctx context.Context, cursor string, pageSize int) (
 
 // FindPendingInviteByEmail paginates every page of pending invites looking
 // for a case-insensitive email match. Segment exposes no email filter on
-// this endpoint. Returns ("", false, nil) if the full list is exhausted with
-// no match.
-func (c *Client) FindPendingInviteByEmail(ctx context.Context, email string) (string, bool, error) {
+// this endpoint. Returns ("", false, nil, nil) if the full list is exhausted
+// with no match. The returned rate limit description is the last non-nil one
+// observed across all pages scanned.
+func (c *Client) FindPendingInviteByEmail(ctx context.Context, email string) (string, bool, *v2.RateLimitDescription, error) {
 	cursor := ""
+	var lastRateLimit *v2.RateLimitDescription
 	for {
-		response, _, err := c.ListInvites(ctx, cursor, DefaultPageSize)
+		response, rl, err := c.ListInvites(ctx, cursor, DefaultPageSize)
+		if rl != nil {
+			lastRateLimit = rl
+		}
 		if err != nil {
-			return "", false, fmt.Errorf("find pending invite by email: %w", err)
+			return "", false, lastRateLimit, fmt.Errorf("find pending invite by email: %w", err)
 		}
 		for _, inviteEmail := range response.Data.Invites {
 			if strings.EqualFold(inviteEmail, email) {
-				return inviteEmail, true, nil
+				return inviteEmail, true, lastRateLimit, nil
 			}
 		}
 		cursor = response.Data.Pagination.Next
 		if cursor == "" {
-			return "", false, nil
+			return "", false, lastRateLimit, nil
 		}
 	}
 }
