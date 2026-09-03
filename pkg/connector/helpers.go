@@ -391,5 +391,5 @@ func hasRateLimitData(rl *v2.RateLimitDescription) bool {
 	if rl.GetStatus() != v2.RateLimitDescription_STATUS_UNSPECIFIED || rl.GetLimit() > 0 {
 		return true
 	}
-	return !rl.GetResetAt().AsTime().IsZero()
+	return rl.HasResetAt() && !rl.GetResetAt().AsTime().IsZero()
 }
