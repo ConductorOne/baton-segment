@@ -128,7 +128,7 @@ func (b *inviteBuilder) CreateAccount(
 	l.Debug("creating invite", zap.String("email", email))
 
 	inviteReq := []client.InviteRequest{{Email: email}}
-	_, rateLimit, err := b.client.CreateInvites(ctx, inviteReq)
+	createResp, rateLimit, err := b.client.CreateInvites(ctx, inviteReq)
 	outputAnnotations.WithRateLimiting(rateLimit)
 	if err != nil {
 		if !client.IsAlreadyExistsError(err) {
@@ -161,16 +161,21 @@ func (b *inviteBuilder) CreateAccount(
 		return &v2.CreateAccountResponse_AlreadyExistsResult{}, nil, outputAnnotations, nil
 	}
 
-	inviteRes, err := inviteResource(email, nil)
-	if err != nil {
-		return nil, nil, outputAnnotations, fmt.Errorf("baton-segment: create invite resource %s: %w", email, err)
+	canonicalEmail := email
+	if len(createResp.Data.Emails) > 0 {
+		canonicalEmail = createResp.Data.Emails[0]
 	}
 
-	l.Debug("invite created successfully", zap.String("email", email))
+	inviteRes, err := inviteResource(canonicalEmail, nil)
+	if err != nil {
+		return nil, nil, outputAnnotations, fmt.Errorf("baton-segment: create invite resource %s: %w", canonicalEmail, err)
+	}
+
+	l.Debug("invite created successfully", zap.String("email", canonicalEmail))
 
 	return &v2.CreateAccountResponse_ActionRequiredResult{
 		Resource: inviteRes,
-		Message:  fmt.Sprintf("Invitation sent to %s. User must accept the email invitation to complete account creation.", email),
+		Message:  fmt.Sprintf("Invitation sent to %s. User must accept the email invitation to complete account creation.", canonicalEmail),
 	}, nil, outputAnnotations, nil
 }
 
