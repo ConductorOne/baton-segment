@@ -99,7 +99,7 @@ func (b *inviteBuilder) CreateAccountCapabilityDetails(ctx context.Context) (*v2
 	}, nil, nil
 }
 
-// CreateAccount creates a new workspace invitation.
+// CreateAccount sends a new workspace invitation.
 func (b *inviteBuilder) CreateAccount(
 	ctx context.Context,
 	accountInfo *v2.AccountInfo,
@@ -107,39 +107,75 @@ func (b *inviteBuilder) CreateAccount(
 ) (connectorbuilder.CreateAccountResponse, []*v2.PlaintextData, annotations.Annotations, error) {
 	l := ctxzap.Extract(ctx)
 
-	// Validate accountInfo and profile are not nil
 	if accountInfo == nil || accountInfo.Profile == nil {
-		return nil, nil, nil, fmt.Errorf("profile is required for creating an invite")
+		return nil, nil, nil, fmt.Errorf("baton-segment: profile is required for creating an invite")
 	}
 
-	// Extract email from profile
 	profile := accountInfo.Profile.AsMap()
-	email, ok := profile["email"].(string)
-	if !ok || email == "" {
-		return nil, nil, nil, fmt.Errorf("email is required for creating an invite")
+	rawEmail := profile["email"]
+	if rawEmail == nil {
+		return nil, nil, nil, fmt.Errorf("baton-segment: email is required for creating an invite")
+	}
+	email, ok := rawEmail.(string)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("baton-segment: invalid email: expected a string, got %T", rawEmail)
+	}
+	if email == "" {
+		return nil, nil, nil, fmt.Errorf("baton-segment: email is required for creating an invite")
 	}
 
 	outputAnnotations := annotations.New()
 	l.Debug("creating invite", zap.String("email", email))
 
-	// Create the invite
 	inviteReq := []client.InviteRequest{{Email: email}}
-	_, rateLimit, err := b.client.CreateInvites(ctx, inviteReq)
+	createResp, rateLimit, err := b.client.CreateInvites(ctx, inviteReq)
 	outputAnnotations.WithRateLimiting(rateLimit)
 	if err != nil {
-		return nil, nil, outputAnnotations, fmt.Errorf("failed to create invite: %w", err)
+		if !client.IsAlreadyExistsError(err) {
+			return nil, nil, outputAnnotations, fmt.Errorf("baton-segment: create invite %s: %w", email, err)
+		}
+
+		existingEmail, found, scanRateLimit, lookupErr := b.client.FindPendingInviteByEmail(ctx, email)
+		if hasRateLimitData(scanRateLimit) {
+			outputAnnotations.WithRateLimiting(scanRateLimit)
+		}
+		if lookupErr != nil {
+			l.Debug("failed to scan pending invites for duplicate lookup", zap.String("email", email), zap.Error(lookupErr))
+			return &v2.CreateAccountResponse_ActionRequiredResult{
+				Message: fmt.Sprintf("Segment reported %s as a duplicate, but the pending-invite lookup used to confirm whether it's already a full member failed. Retry account creation.", email),
+			}, nil, outputAnnotations, nil
+		}
+		if found {
+			existingInvite, resErr := inviteResource(existingEmail, nil)
+			if resErr != nil {
+				return nil, nil, outputAnnotations, fmt.Errorf("baton-segment: create invite resource %s: %w", email, resErr)
+			}
+			l.Debug("duplicate confirmed; invitation already pending", zap.String("email", email))
+			return &v2.CreateAccountResponse_ActionRequiredResult{
+				Resource: existingInvite,
+				Message:  fmt.Sprintf("Segment invitation already pending for %s. User must accept the existing email invitation.", email),
+			}, nil, outputAnnotations, nil
+		}
+
+		l.Debug("duplicate confirmed; not a pending invite, so email already belongs to a workspace member", zap.String("email", email))
+		return &v2.CreateAccountResponse_AlreadyExistsResult{}, nil, outputAnnotations, nil
 	}
 
-	// Create the resource for the response
-	inviteRes, err := inviteResource(email, nil)
+	canonicalEmail := email
+	if len(createResp.Data.Emails) > 0 {
+		canonicalEmail = createResp.Data.Emails[0]
+	}
+
+	inviteRes, err := inviteResource(canonicalEmail, nil)
 	if err != nil {
-		return nil, nil, outputAnnotations, fmt.Errorf("failed to create invite resource: %w", err)
+		return nil, nil, outputAnnotations, fmt.Errorf("baton-segment: create invite resource %s: %w", canonicalEmail, err)
 	}
 
-	l.Debug("invite created successfully", zap.String("email", email))
+	l.Debug("invite created successfully", zap.String("email", canonicalEmail))
 
-	return &v2.CreateAccountResponse_SuccessResult{
+	return &v2.CreateAccountResponse_ActionRequiredResult{
 		Resource: inviteRes,
+		Message:  fmt.Sprintf("Invitation sent to %s. User must accept the email invitation to complete account creation.", canonicalEmail),
 	}, nil, outputAnnotations, nil
 }
 
@@ -148,7 +184,7 @@ func (b *inviteBuilder) Delete(ctx context.Context, resourceID *v2.ResourceId) (
 	l := ctxzap.Extract(ctx)
 
 	if resourceID.ResourceType != inviteResourceType.Id {
-		return nil, fmt.Errorf("invalid resource type: expected %s, got %s", inviteResourceType.Id, resourceID.ResourceType)
+		return nil, fmt.Errorf("baton-segment: invalid resource type: expected %s, got %s", inviteResourceType.Id, resourceID.ResourceType)
 	}
 
 	// The resource ID for invites is the email address
@@ -160,7 +196,7 @@ func (b *inviteBuilder) Delete(ctx context.Context, resourceID *v2.ResourceId) (
 	rateLimit, err := b.client.DeleteInvites(ctx, []string{email})
 	outputAnnotations.WithRateLimiting(rateLimit)
 	if err != nil {
-		return outputAnnotations, fmt.Errorf("failed to delete invite: %w", err)
+		return outputAnnotations, fmt.Errorf("baton-segment: delete invite %s: %w", email, err)
 	}
 
 	l.Debug("invite deleted successfully", zap.String("email", email))
