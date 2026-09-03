@@ -483,6 +483,17 @@ func (ts *TestServer) handleListInvites(w http.ResponseWriter, r *http.Request) 
 	sendJSON(w, response)
 }
 
+// findInviteKey returns the stored map key for a case-insensitive email
+// match, preserving whatever casing the invite was originally created with.
+func (ts *TestServer) findInviteKey(email string) (string, bool) {
+	for existing := range ts.invites {
+		if strings.EqualFold(existing, email) {
+			return existing, true
+		}
+	}
+	return "", false
+}
+
 // handleCreateInvites creates new workspace invitations.
 func (ts *TestServer) handleCreateInvites(w http.ResponseWriter, r *http.Request) {
 	ts.mu.Lock()
@@ -500,10 +511,10 @@ func (ts *TestServer) handleCreateInvites(w http.ResponseWriter, r *http.Request
 	}
 
 	for _, invite := range req.Invites {
-		if ts.invites[strings.ToLower(invite.Email)] {
+		if _, found := ts.findInviteKey(invite.Email); found {
 			// Verified against the live Segment API.
 			logf("❌ POST /invites - already invited: %s", invite.Email)
-			http.Error(w, `{"errors":[{"type":"bad-request","message":"One or more email address was already invited to join workspace."}]}`, http.StatusBadRequest)
+			sendJSONError(w, http.StatusBadRequest, `{"errors":[{"type":"bad-request","message":"One or more email address was already invited to join workspace."}]}`)
 			return
 		}
 		for _, user := range ts.users {
@@ -511,7 +522,7 @@ func (ts *TestServer) handleCreateInvites(w http.ResponseWriter, r *http.Request
 				// Verified against the live Segment API: identical body to the
 				// already-invited case above - Segment does not distinguish them.
 				logf("❌ POST /invites - already a member: %s", invite.Email)
-				http.Error(w, `{"errors":[{"type":"bad-request","message":"One or more email address was already invited to join workspace."}]}`, http.StatusBadRequest)
+				sendJSONError(w, http.StatusBadRequest, `{"errors":[{"type":"bad-request","message":"One or more email address was already invited to join workspace."}]}`)
 				return
 			}
 		}
@@ -519,7 +530,10 @@ func (ts *TestServer) handleCreateInvites(w http.ResponseWriter, r *http.Request
 
 	var emails []string
 	for _, invite := range req.Invites {
-		ts.invites[strings.ToLower(invite.Email)] = true
+		// Preserve the caller's casing: List() returns these keys verbatim,
+		// and CreateAccount's resource ID is built from the same input, so
+		// normalizing here would make the two diverge for a mixed-case email.
+		ts.invites[invite.Email] = true
 		emails = append(emails, invite.Email)
 	}
 
@@ -549,7 +563,9 @@ func (ts *TestServer) handleDeleteInvites(w http.ResponseWriter, r *http.Request
 	}
 
 	for _, email := range emails {
-		delete(ts.invites, strings.ToLower(email))
+		if key, found := ts.findInviteKey(email); found {
+			delete(ts.invites, key)
+		}
 	}
 
 	logf("✅ DELETE /invites - deleted invites: %v", emails)
@@ -986,6 +1002,17 @@ func sendJSON(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/vnd.segment.v1+json")
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		logf("❌ Failed to encode JSON response: %v", err)
+	}
+}
+
+// sendJSONError writes a JSON error body with the real content type, unlike
+// http.Error (which forces text/plain and so bypasses uhttp's JSON error
+// decode path on the client).
+func sendJSONError(w http.ResponseWriter, statusCode int, body string) {
+	w.Header().Set("Content-Type", "application/vnd.segment.v1+json")
+	w.WriteHeader(statusCode)
+	if _, err := w.Write([]byte(body)); err != nil {
+		logf("❌ Failed to write JSON error response: %v", err)
 	}
 }
 

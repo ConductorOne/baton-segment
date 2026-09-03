@@ -380,3 +380,10 @@ func getScopeResourceType(segmentResourceType string) *v2.ResourceType {
 		return nil
 	}
 }
+
+// hasRateLimitData reports whether rl carries real rate-limit data, as
+// opposed to the zero-valued struct doRequest returns when a request fails
+// before any response is received.
+func hasRateLimitData(rl *v2.RateLimitDescription) bool {
+	return rl.GetStatus() != v2.RateLimitDescription_STATUS_UNSPECIFIED || rl.GetLimit() > 0
+}

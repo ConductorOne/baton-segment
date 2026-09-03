@@ -112,8 +112,8 @@ func (b *inviteBuilder) CreateAccount(
 	}
 
 	profile := accountInfo.Profile.AsMap()
-	rawEmail, present := profile["email"]
-	if !present || rawEmail == nil {
+	rawEmail := profile["email"]
+	if rawEmail == nil {
 		return nil, nil, nil, fmt.Errorf("baton-segment: email is required for creating an invite")
 	}
 	email, ok := rawEmail.(string)
@@ -136,7 +136,9 @@ func (b *inviteBuilder) CreateAccount(
 		}
 
 		existingEmail, found, scanRateLimit, lookupErr := b.client.FindPendingInviteByEmail(ctx, email)
-		outputAnnotations.WithRateLimiting(scanRateLimit)
+		if hasRateLimitData(scanRateLimit) {
+			outputAnnotations.WithRateLimiting(scanRateLimit)
+		}
 		if lookupErr != nil {
 			l.Debug("failed to scan pending invites for duplicate lookup", zap.String("email", email), zap.Error(lookupErr))
 			return &v2.CreateAccountResponse_ActionRequiredResult{
