@@ -7,6 +7,8 @@ import (
 const (
 	AccessTokenKey = "token"
 	BaseURLKey     = "base-url"
+
+	DefaultBaseURL = "https://api.segmentapis.com"
 )
 
 var (
@@ -24,7 +26,7 @@ var (
 		BaseURLKey,
 		field.WithDisplayName("Base URL"),
 		field.WithDescription("Base URL for the Segment API"),
-		field.WithDefaultValue("https://api.segmentapis.com"),
+		field.WithDefaultValue(DefaultBaseURL),
 		field.WithHidden(true),
 		field.WithExportTarget(field.ExportTargetCLIOnly),
 	)

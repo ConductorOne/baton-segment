@@ -86,7 +86,12 @@ func New(ctx context.Context,
 	[]connectorbuilder.Opt,
 	error,
 ) {
-	c, err := client.New(ctx, connectorConfig.Token, connectorConfig.BaseUrl)
+	baseURL := connectorConfig.BaseUrl
+	if baseURL == "" {
+		baseURL = cfg.DefaultBaseURL
+	}
+
+	c, err := client.New(ctx, connectorConfig.Token, baseURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create client: %w", err)
 	}
