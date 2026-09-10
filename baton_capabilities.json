@@ -28,6 +28,11 @@
         "traits": [
           "TRAIT_GROUP"
         ],
+        "annotations": [
+          {
+            "@type": "type.googleapis.com/c1.connector.v2.SkipEntitlements"
+          }
+        ],
         "description": "A Segment user group"
       },
       "capabilities": [

@@ -8,6 +8,7 @@ import (
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/cli"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/session"
 	ent "github.com/conductorone/baton-sdk/pkg/types/entitlement"
@@ -361,6 +362,47 @@ func filterOutPermission(permissions []client.Permission, roleID, resourceType, 
 	}
 
 	return result
+}
+
+// skipCrossTypeGrants is the set of cross-type target resource types excluded
+// from this sync, precomputed once so builders take booleans rather than the
+// whole *cli.ConnectorOpts.
+type skipCrossTypeGrants map[string]bool
+
+// skip reports whether grants targeting resourceTypeID should be suppressed.
+func (s skipCrossTypeGrants) skip(resourceTypeID string) bool { return s[resourceTypeID] }
+
+// all reports whether every cross-type target is excluded. Only safe to act on
+// for builders whose grants are all cross-type (userBuilder); groupBuilder also
+// emits its own member grants, so it uses this to skip the group-roles fetch
+// rather than the whole grants pass.
+func (s skipCrossTypeGrants) all() bool {
+	for _, id := range crossTypeGrantTargets {
+		if !s[id] {
+			return false
+		}
+	}
+	return true
+}
+
+// crossTypeGrantTargets are the resource types that user/group grants can
+// reference, derived from a permission's scope.
+var crossTypeGrantTargets = []string{
+	roleResourceType.Id,
+	sourceResourceType.Id,
+	warehouseResourceType.Id,
+	functionResourceType.Id,
+	spaceResourceType.Id,
+}
+
+// newSkipCrossTypeGrants precomputes the skip decision for every target type.
+// nil cliOpts means no filter, so nothing is skipped.
+func newSkipCrossTypeGrants(cliOpts *cli.ConnectorOpts) skipCrossTypeGrants {
+	out := make(skipCrossTypeGrants, len(crossTypeGrantTargets))
+	for _, id := range crossTypeGrantTargets {
+		out[id] = cliOpts != nil && !cliOpts.WillSyncResourceType(id)
+	}
+	return out
 }
 
 // getScopeResourceType converts a Segment resource type string to the corresponding v2.ResourceType.
