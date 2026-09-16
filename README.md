@@ -55,7 +55,7 @@ baton resources
 ## docker
 
 ```bash
-docker run --rm -v $(pwd):/out -e BATON_TOKEN=your-access-token ghcr.io/conductorone/baton-segment:latest -f "/out/sync.c1z"
+docker run --rm -v $(pwd):/out -e BATON_TOKEN=your-access-token public.ecr.aws/conductorone/baton-segment:latest -f "/out/sync.c1z"
 docker run --rm -v $(pwd):/out ghcr.io/conductorone/baton:latest -f "/out/sync.c1z" resources
 ```
 
