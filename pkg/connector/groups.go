@@ -13,7 +13,6 @@ import (
 	"github.com/conductorone/baton-segment/pkg/connector/client"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -43,13 +42,12 @@ func getEmailFromResource(resource *v2.Resource) (string, error) {
 }
 
 type groupBuilder struct {
-	client       *client.Client
-	skipTargets  skipCrossTypeGrants
-	resourceType *v2.ResourceType
+	client      *client.Client
+	skipTargets skipCrossTypeGrants
 }
 
 func (b *groupBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
-	return b.resourceType
+	return groupResourceType
 }
 
 // List returns all the groups from the Segment workspace.
@@ -146,8 +144,14 @@ func (b *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, opts r
 	currentState := bag.Current()
 	// Initialize pagination state on first call (bag is empty)
 	if currentState == nil {
-		// Push in reverse order since it's a stack (last pushed = first processed)
-		bag.Push(pagination.PageState{ResourceTypeID: "group-roles", ResourceID: groupID})
+		// Push in reverse order since it's a stack (last pushed = first processed).
+		// The group-roles phase only emits cross-type grants, so when every
+		// target is excluded it is never scheduled at all — that skips the
+		// GetGroup call per group. The group's own member grants come from the
+		// group-members phase and are unaffected.
+		if !b.skipTargets.all() {
+			bag.Push(pagination.PageState{ResourceTypeID: "group-roles", ResourceID: groupID})
+		}
 		bag.Push(pagination.PageState{ResourceTypeID: "group-members", ResourceID: groupID})
 		currentState = bag.Current()
 	}
@@ -181,18 +185,6 @@ func (b *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, opts r
 		l.Debug("listed group member grants", zap.String("group_id", groupID), zap.Int("count", len(grants)))
 
 	case "group-roles":
-		if b.skipTargets.all() {
-			// Every cross-type target is excluded, so this phase would fetch
-			// the group and then discard all of its grants. The group's own
-			// member grants come from the group-members phase and are
-			// unaffected.
-			nextToken, err := bag.NextToken("")
-			if err != nil {
-				return nil, &rs.SyncOpResults{Annotations: outputAnnotations}, fmt.Errorf("failed to create next page token: %w", err)
-			}
-			return nil, &rs.SyncOpResults{NextPageToken: nextToken, Annotations: outputAnnotations}, nil
-		}
-
 		// Fetch group details to get role assignments
 		groupResp, rateLimit, err := b.client.GetGroup(ctx, groupID)
 		outputAnnotations.WithRateLimiting(rateLimit)
@@ -357,18 +349,5 @@ func (b *groupBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations
 // in Grants; the grants pass itself is never skipped, because Grants also emits
 // the group's own member grants.
 func newGroupBuilder(c *client.Client, skipTargets skipCrossTypeGrants) *groupBuilder {
-	rt := proto.Clone(groupResourceType).(*v2.ResourceType)
-	annos := annotations.Annotations(rt.GetAnnotations())
-	// Entitlements is empty for groups — the member entitlement comes from
-	// StaticEntitlements — so SkipEntitlements always applies.
-	//
-	// SkipEntitlementsAndGrants must NOT be set here even when every cross-type
-	// target is filtered out: Grants also emits the group's own member grants,
-	// which no resource-type filter affects. Suppressing the whole grants pass
-	// would silently drop group membership. The cross-type grants are filtered
-	// individually in Grants instead.
-	annos.Update(&v2.SkipEntitlements{})
-	rt.Annotations = annos
-
-	return &groupBuilder{client: c, skipTargets: skipTargets, resourceType: rt}
+	return &groupBuilder{client: c, skipTargets: skipTargets}
 }

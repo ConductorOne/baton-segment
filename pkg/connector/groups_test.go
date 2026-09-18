@@ -92,9 +92,9 @@ func groupRoleGrantTargetTypes(t *testing.T, grants []*v2.Grant) []string {
 	t.Helper()
 	var types []string
 	for _, g := range grants {
-		// Group-members phase grants target the "user" resource type; only
-		// count cross-type (group-roles phase) grants.
-		if g.Entitlement.Resource.Id.ResourceType == userResourceType.Id {
+		// Group-members phase grants have a user principal; cross-type
+		// (group-roles phase) grants have the group itself as principal.
+		if g.Principal.Id.ResourceType == userResourceType.Id {
 			continue
 		}
 		types = append(types, g.Entitlement.Resource.Id.ResourceType)
@@ -122,6 +122,31 @@ func driveGroupRolesPhase(t *testing.T, ctx context.Context, b *groupBuilder, gr
 	require.NoError(t, err)
 
 	return grants2
+}
+
+// driveAllGrantPhases runs Grants until the pagination bag is exhausted,
+// returning every grant emitted across all phases. Unlike driveGroupRolesPhase
+// it does not assume the group-roles phase is scheduled.
+func driveAllGrantPhases(t *testing.T, ctx context.Context, b *groupBuilder, groupResource *v2.Resource) []*v2.Grant {
+	t.Helper()
+
+	var all []*v2.Grant
+	var token string
+	for i := 0; ; i++ {
+		require.Less(t, i, 10, "grants pagination did not terminate")
+
+		grants, results, err := b.Grants(ctx, groupResource, rs.SyncOpAttrs{
+			PageToken: pagination.Token{Token: token},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		all = append(all, grants...)
+		if results.NextPageToken == "" {
+			return all
+		}
+		token = results.NextPageToken
+	}
 }
 
 func TestGroupBuilder_Grants_NoFilter_EmitsAllCrossTypeGrants(t *testing.T) {
@@ -207,25 +232,27 @@ func TestGroupBuilder_AllTargetsFiltered_KeepsOwnMemberGrants(t *testing.T) {
 		Id: &v2.ResourceId{ResourceType: groupResourceType.Id, Resource: "g1"},
 	}
 
-	// Phase 1 (group-members) must still emit the group's own member grants.
+	// The group-members phase must still emit the group's own member grants,
+	// and it must be the only phase: group-roles is never pushed onto the bag.
 	memberGrants, results, err := b.Grants(ctx, groupResource, rs.SyncOpAttrs{})
 	require.NoError(t, err)
 	require.NotNil(t, results)
 	require.NotEmpty(t, memberGrants, "group member grants must survive cross-type filtering")
+	require.Empty(t, results.NextPageToken,
+		"group-roles phase should not be scheduled when every cross-type target is excluded")
 	for _, g := range memberGrants {
 		// The group's own member entitlement, granted to a user principal.
 		require.Equal(t, groupResourceType.Id, g.Entitlement.Resource.Id.ResourceType)
 		require.Equal(t, userResourceType.Id, g.Principal.Id.ResourceType)
 	}
 
-	// ...while the cross-type grants are all filtered out.
-	grants := driveGroupRolesPhase(t, ctx, b, groupResource)
-	require.Empty(t, groupRoleGrantTargetTypes(t, grants))
+	// ...while no cross-type grants are emitted across the whole grants pass.
+	require.Empty(t, groupRoleGrantTargetTypes(t, driveAllGrantPhases(t, ctx, b, groupResource)))
 }
 
-// TestGroupBuilder_AllTargetsFiltered_SkipsGroupFetch pins that the group-roles
-// phase does not fetch the group at all when every cross-type target is
-// excluded — otherwise it pays one GetGroup per group and discards every grant.
+// TestGroupBuilder_AllTargetsFiltered_SkipsGroupFetch pins that no GetGroup call
+// is made when every cross-type target is excluded — otherwise it pays one
+// GetGroup per group and discards every grant.
 func TestGroupBuilder_AllTargetsFiltered_SkipsGroupFetch(t *testing.T) {
 	ctx := context.Background()
 
@@ -256,11 +283,11 @@ func TestGroupBuilder_AllTargetsFiltered_SkipsGroupFetch(t *testing.T) {
 	}
 
 	// A target still in scope: the fetch must happen.
-	driveGroupRolesPhase(t, ctx, newBuilder([]string{"user", "group", "source"}), groupResource)
+	driveAllGrantPhases(t, ctx, newBuilder([]string{"user", "group", "source"}), groupResource)
 	require.Equal(t, 1, groupFetches, "group-roles phase should fetch the group when a target is in scope")
 
-	// Every target excluded: no fetch.
+	// Every target excluded: the phase never runs, so nothing is fetched.
 	groupFetches = 0
-	driveGroupRolesPhase(t, ctx, newBuilder([]string{"group"}), groupResource)
-	require.Zero(t, groupFetches, "group-roles phase should not fetch the group when every target is excluded")
+	driveAllGrantPhases(t, ctx, newBuilder([]string{"group"}), groupResource)
+	require.Zero(t, groupFetches, "no group fetch should happen when every cross-type target is excluded")
 }

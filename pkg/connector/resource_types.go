@@ -33,11 +33,20 @@ var userResourceType = &v2.ResourceType{
 }
 
 // Resource type for IAM groups.
+// Entitlements is empty for groups — the member entitlement comes from
+// StaticEntitlements — so SkipEntitlements always applies.
+//
+// SkipEntitlementsAndGrants must never be set here, not even when every
+// cross-type target is filtered out: Grants also emits the group's own member
+// grants, which no resource-type filter affects. Suppressing the whole grants
+// pass would silently drop group membership. The cross-type grants are
+// filtered individually in Grants instead.
 var groupResourceType = &v2.ResourceType{
 	Id:          "group",
 	DisplayName: "Group",
 	Description: "A Segment user group",
 	Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_GROUP},
+	Annotations: annotations.New(&v2.SkipEntitlements{}),
 }
 
 // Resource type for IAM roles.
