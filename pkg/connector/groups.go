@@ -42,7 +42,8 @@ func getEmailFromResource(resource *v2.Resource) (string, error) {
 }
 
 type groupBuilder struct {
-	client *client.Client
+	client      *client.Client
+	skipTargets skipCrossTypeGrants
 }
 
 func (b *groupBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
@@ -143,8 +144,14 @@ func (b *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, opts r
 	currentState := bag.Current()
 	// Initialize pagination state on first call (bag is empty)
 	if currentState == nil {
-		// Push in reverse order since it's a stack (last pushed = first processed)
-		bag.Push(pagination.PageState{ResourceTypeID: "group-roles", ResourceID: groupID})
+		// Push in reverse order since it's a stack (last pushed = first processed).
+		// The group-roles phase only emits cross-type grants, so when every
+		// target is excluded it is never scheduled at all — that skips the
+		// GetGroup call per group. The group's own member grants come from the
+		// group-members phase and are unaffected.
+		if !b.skipTargets.all() {
+			bag.Push(pagination.PageState{ResourceTypeID: "group-roles", ResourceID: groupID})
+		}
 		bag.Push(pagination.PageState{ResourceTypeID: "group-members", ResourceID: groupID})
 		currentState = bag.Current()
 	}
@@ -205,6 +212,17 @@ func (b *groupBuilder) Grants(ctx context.Context, resource *v2.Resource, opts r
 					l.Debug("unknown scope resource type, skipping",
 						zap.String("resource_type", res.Type),
 						zap.String("resource_id", res.ID),
+					)
+					continue
+				}
+
+				targetTypeID := scopeResourceType.Id
+				if res.Type == ResourceTypeWorkspace {
+					targetTypeID = roleResourceType.Id
+				}
+				if b.skipTargets.skip(targetTypeID) {
+					l.Debug("skipping cross-type grant for unsynced resource type",
+						zap.String("target_resource_type", targetTypeID),
 					)
 					continue
 				}
@@ -327,6 +345,9 @@ func (b *groupBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations
 	return outputAnnotations, nil
 }
 
-func newGroupBuilder(c *client.Client) *groupBuilder {
-	return &groupBuilder{client: c}
+// newGroupBuilder builds the syncer. Cross-type grants are filtered per-target
+// in Grants; the grants pass itself is never skipped, because Grants also emits
+// the group's own member grants.
+func newGroupBuilder(c *client.Client, skipTargets skipCrossTypeGrants) *groupBuilder {
+	return &groupBuilder{client: c, skipTargets: skipTargets}
 }
