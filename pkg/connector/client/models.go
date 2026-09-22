@@ -141,9 +141,16 @@ func (e *ErrorResponse) Message() string {
 // ListUsersResponse is the response from the list users endpoint.
 type ListUsersResponse struct {
 	Data struct {
-		Users      []User     `json:"users"`
-		Pagination Pagination `json:"pagination"`
+		Users      []User      `json:"users"`
+		Pagination *Pagination `json:"pagination"`
 	} `json:"data"`
+}
+
+// HasPaginationData satisfies uhttp.PaginatedResponse. Segment's published spec marks
+// pagination required on this response and leaves next optional inside it, so a nil
+// Pagination means the object was dropped rather than the list having ended.
+func (r *ListUsersResponse) HasPaginationData() bool {
+	return r.Data.Pagination != nil
 }
 
 // GetUserResponse is the response from the get user endpoint.
@@ -156,9 +163,16 @@ type GetUserResponse struct {
 // ListGroupsResponse is the response from the list groups endpoint.
 type ListGroupsResponse struct {
 	Data struct {
-		UserGroups []Group    `json:"userGroups"`
-		Pagination Pagination `json:"pagination"`
+		UserGroups []Group     `json:"userGroups"`
+		Pagination *Pagination `json:"pagination"`
 	} `json:"data"`
+}
+
+// HasPaginationData satisfies uhttp.PaginatedResponse. Segment's published spec marks
+// pagination required on this response and leaves next optional inside it, so a nil
+// Pagination means the object was dropped rather than the list having ended.
+func (r *ListGroupsResponse) HasPaginationData() bool {
+	return r.Data.Pagination != nil
 }
 
 // GetGroupResponse is the response from the get group endpoint.
@@ -171,9 +185,16 @@ type GetGroupResponse struct {
 // ListGroupUsersResponse is the response from the list group users endpoint.
 type ListGroupUsersResponse struct {
 	Data struct {
-		Users      []User     `json:"users"`
-		Pagination Pagination `json:"pagination"`
+		Users      []User      `json:"users"`
+		Pagination *Pagination `json:"pagination"`
 	} `json:"data"`
+}
+
+// HasPaginationData satisfies uhttp.PaginatedResponse. Segment's published spec marks
+// pagination required on this response and leaves next optional inside it, so a nil
+// Pagination means the object was dropped rather than the list having ended.
+func (r *ListGroupUsersResponse) HasPaginationData() bool {
+	return r.Data.Pagination != nil
 }
 
 // ListRolesResponse is the response from the list roles endpoint.
@@ -187,9 +208,16 @@ type ListRolesResponse struct {
 // ListInvitesResponse is the response from the list invites endpoint.
 type ListInvitesResponse struct {
 	Data struct {
-		Invites    []string   `json:"invites"` // Invites are just email strings
-		Pagination Pagination `json:"pagination"`
+		Invites    []string    `json:"invites"` // Invites are just email strings
+		Pagination *Pagination `json:"pagination"`
 	} `json:"data"`
+}
+
+// HasPaginationData satisfies uhttp.PaginatedResponse. Segment's published spec marks
+// pagination required on this response and leaves next optional inside it, so a nil
+// Pagination means the object was dropped rather than the list having ended.
+func (r *ListInvitesResponse) HasPaginationData() bool {
+	return r.Data.Pagination != nil
 }
 
 // CreateInvitesRequest is the request body for creating invites.
@@ -232,33 +260,61 @@ type GetWorkspaceResponse struct {
 // ListSourcesResponse is the response from the list sources endpoint.
 type ListSourcesResponse struct {
 	Data struct {
-		Sources    []Source   `json:"sources"`
-		Pagination Pagination `json:"pagination"`
+		Sources    []Source    `json:"sources"`
+		Pagination *Pagination `json:"pagination"`
 	} `json:"data"`
+}
+
+// HasPaginationData satisfies uhttp.PaginatedResponse. Segment's published spec marks
+// pagination required on this response and leaves next optional inside it, so a nil
+// Pagination means the object was dropped rather than the list having ended.
+func (r *ListSourcesResponse) HasPaginationData() bool {
+	return r.Data.Pagination != nil
 }
 
 // ListWarehousesResponse is the response from the list warehouses endpoint.
 type ListWarehousesResponse struct {
 	Data struct {
 		Warehouses []Warehouse `json:"warehouses"`
-		Pagination Pagination  `json:"pagination"`
+		Pagination *Pagination `json:"pagination"`
 	} `json:"data"`
+}
+
+// HasPaginationData satisfies uhttp.PaginatedResponse. Segment's published spec marks
+// pagination required on this response and leaves next optional inside it, so a nil
+// Pagination means the object was dropped rather than the list having ended.
+func (r *ListWarehousesResponse) HasPaginationData() bool {
+	return r.Data.Pagination != nil
 }
 
 // ListFunctionsResponse is the response from the list functions endpoint.
 type ListFunctionsResponse struct {
 	Data struct {
-		Functions  []Function `json:"functions"`
-		Pagination Pagination `json:"pagination"`
+		Functions  []Function  `json:"functions"`
+		Pagination *Pagination `json:"pagination"`
 	} `json:"data"`
+}
+
+// HasPaginationData satisfies uhttp.PaginatedResponse. Segment's published spec marks
+// pagination required on this response and leaves next optional inside it, so a nil
+// Pagination means the object was dropped rather than the list having ended.
+func (r *ListFunctionsResponse) HasPaginationData() bool {
+	return r.Data.Pagination != nil
 }
 
 // ListSpacesResponse is the response from the list spaces endpoint.
 type ListSpacesResponse struct {
 	Data struct {
-		Spaces     []Space    `json:"spaces"`
-		Pagination Pagination `json:"pagination"`
+		Spaces     []Space     `json:"spaces"`
+		Pagination *Pagination `json:"pagination"`
 	} `json:"data"`
+}
+
+// HasPaginationData satisfies uhttp.PaginatedResponse. Segment's published spec marks
+// pagination required on this response and leaves next optional inside it, so a nil
+// Pagination means the object was dropped rather than the list having ended.
+func (r *ListSpacesResponse) HasPaginationData() bool {
+	return r.Data.Pagination != nil
 }
 
 // UpdatePermissionsRequest is the request body for updating permissions.

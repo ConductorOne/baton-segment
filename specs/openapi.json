@@ -1,0 +1,1617 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Segment Public API (baton-segment surface)",
+    "version": "2026-09-22",
+    "description": "The subset of the Segment Public API that baton-segment calls. Scope is connector scope: nineteen operations, and only the response fields the connector's structs declare. Shapes and required flags settled against Segment's published spec, which this repo already vendors at cmd/test-server/swagger.json, and the per-endpoint doc links in pkg/connector/client/client.go (accessed 2026-09-22)."
+  },
+  "servers": [
+    {
+      "url": "https://api.segmentapis.com"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "getWorkspace",
+        "summary": "Get the workspace",
+        "description": "pkg/connector/client/client.go GetWorkspace, and ValidateCredentials which uses it as the token probe. Not paginated.",
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Workspace envelope.",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "workspace"
+                      ],
+                      "properties": {
+                        "workspace": {
+                          "$ref": "#/components/schemas/Workspace"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "operationId": "listUsers",
+        "summary": "List IAM users",
+        "description": "client.go ListUsers. Paginated: cursor is data.pagination.next -> pagination.cursor.",
+        "parameters": [
+          {
+            "name": "pagination.count",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Sent on every paginated call.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pagination.cursor",
+            "in": "query",
+            "required": false,
+            "description": "Cursor from the previous response's data.pagination.next. Omitted on the first page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListUsersResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteUsers",
+        "summary": "Delete users",
+        "description": "client.go DeleteUser. The user is identified by an indexed query param, not a path param: userIds.0.",
+        "parameters": [
+          {
+            "name": "userIds.0",
+            "in": "query",
+            "required": true,
+            "description": "Indexed list param. The connector deletes one user per call.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Users deleted. The connector does not decode the body."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/users/{userId}": {
+      "get": {
+        "operationId": "getUser",
+        "summary": "Get an IAM user",
+        "description": "client.go GetUser. Not paginated.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Single user envelope.",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "user"
+                      ],
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/users/{userId}/permissions": {
+      "post": {
+        "operationId": "addUserPermissions",
+        "summary": "Add user permissions",
+        "description": "client.go AddUserPermissions. Additive grant.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePermissionsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Permissions added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdatePermissionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceUserPermissions",
+        "summary": "Replace user permissions",
+        "description": "client.go ReplaceUserPermissions. Used for revoke: the connector sends the remaining set.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePermissionsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Permissions replaced.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdatePermissionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/groups": {
+      "get": {
+        "operationId": "listUserGroups",
+        "summary": "List IAM groups",
+        "description": "client.go ListGroups. Paginated.",
+        "parameters": [
+          {
+            "name": "pagination.count",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Sent on every paginated call.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pagination.cursor",
+            "in": "query",
+            "required": false,
+            "description": "Cursor from the previous response's data.pagination.next. Omitted on the first page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListGroupsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/groups/{groupId}": {
+      "get": {
+        "operationId": "getUserGroup",
+        "summary": "Get an IAM group",
+        "description": "client.go GetGroup. Not paginated. The group's permissions drive cross-type grants.",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Single group envelope.",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "userGroup"
+                      ],
+                      "properties": {
+                        "userGroup": {
+                          "$ref": "#/components/schemas/Group"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/groups/{groupId}/users": {
+      "get": {
+        "operationId": "listUsersFromUserGroup",
+        "summary": "List users in a group",
+        "description": "client.go ListGroupUsers. Paginated.",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pagination.count",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Sent on every paginated call.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pagination.cursor",
+            "in": "query",
+            "required": false,
+            "description": "Cursor from the previous response's data.pagination.next. Omitted on the first page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListGroupUsersResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "addUsersToUserGroup",
+        "summary": "Add users to a group",
+        "description": "client.go AddUsersToGroup. Members are identified by email, not id.",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddUsersToGroupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Users added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddUsersToGroupResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeUsersFromUserGroup",
+        "summary": "Remove users from a group",
+        "description": "client.go RemoveUsersFromGroup. Emails go in indexed query params (emails.0, emails.1, ...), not a body.",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "emails.0",
+            "in": "query",
+            "required": true,
+            "description": "Indexed list param; emails.1, emails.2 ... follow for multiple.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Users removed. The connector does not decode the body."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/roles": {
+      "get": {
+        "operationId": "listRoles",
+        "summary": "List IAM roles",
+        "description": "client.go ListRoles. Segment defines a fixed set of roles, so the connector does not paginate this one.",
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Roles envelope. Not paginated by this connector.",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "roles"
+                      ],
+                      "properties": {
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Role"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/invites": {
+      "get": {
+        "operationId": "listInvites",
+        "summary": "List pending invites",
+        "description": "client.go ListInvites, and FindPendingInviteByEmail which walks the pages looking for one address. Paginated.",
+        "parameters": [
+          {
+            "name": "pagination.count",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Sent on every paginated call.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pagination.cursor",
+            "in": "query",
+            "required": false,
+            "description": "Cursor from the previous response's data.pagination.next. Omitted on the first page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListInvitesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createInvites",
+        "summary": "Create invites",
+        "description": "client.go CreateInvites. Used for account provisioning.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvitesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invites created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateInvitesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteInvites",
+        "summary": "Delete invites",
+        "description": "client.go DeleteInvites. Emails go in indexed query params.",
+        "parameters": [
+          {
+            "name": "emails.0",
+            "in": "query",
+            "required": true,
+            "description": "Indexed list param.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invites deleted. The connector does not decode the body."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/sources": {
+      "get": {
+        "operationId": "listSources",
+        "summary": "List sources",
+        "description": "client.go ListSources. Paginated.",
+        "parameters": [
+          {
+            "name": "pagination.count",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Sent on every paginated call.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pagination.cursor",
+            "in": "query",
+            "required": false,
+            "description": "Cursor from the previous response's data.pagination.next. Omitted on the first page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSourcesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/warehouses": {
+      "get": {
+        "operationId": "listWarehouses",
+        "summary": "List warehouses",
+        "description": "client.go ListWarehouses. Paginated.",
+        "parameters": [
+          {
+            "name": "pagination.count",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Sent on every paginated call.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pagination.cursor",
+            "in": "query",
+            "required": false,
+            "description": "Cursor from the previous response's data.pagination.next. Omitted on the first page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListWarehousesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/spaces": {
+      "get": {
+        "operationId": "listSpaces",
+        "summary": "List spaces",
+        "description": "client.go ListSpaces. Paginated. Note Segment serves this one as application/vnd.segment.v1alpha+json; uhttp.IsJSONContentType accepts any application/*json.",
+        "parameters": [
+          {
+            "name": "pagination.count",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Sent on every paginated call.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pagination.cursor",
+            "in": "query",
+            "required": false,
+            "description": "Cursor from the previous response's data.pagination.next. Omitted on the first page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSpacesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/functions": {
+      "get": {
+        "operationId": "listFunctions",
+        "summary": "List functions",
+        "description": "client.go ListFunctions. Paginated, plus a resourceType filter the connector sets per function kind.",
+        "parameters": [
+          {
+            "name": "pagination.count",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Sent on every paginated call.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pagination.cursor",
+            "in": "query",
+            "required": false,
+            "description": "Cursor from the previous response's data.pagination.next. Omitted on the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resourceType",
+            "in": "query",
+            "required": false,
+            "description": "Function kind filter, set by the connector.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListFunctionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Segment Public API token."
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Error, decoded into ErrorResponse by uhttp.WithErrorResponse.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Pagination": {
+        "type": "object",
+        "description": "Segment's published spec marks pagination required on every list output and only current required inside it, so the object is always sent and next drops out on the last page.",
+        "required": [
+          "current"
+        ],
+        "properties": {
+          "current": {
+            "type": "string"
+          },
+          "next": {
+            "type": "string",
+            "description": "Cursor for the next page. Absent on the last page."
+          },
+          "previous": {
+            "type": "string"
+          },
+          "totalEntries": {
+            "type": "integer"
+          }
+        }
+      },
+      "ListUsersResponse": {
+        "type": "object",
+        "description": "Paginated users list.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "users",
+              "pagination"
+            ],
+            "properties": {
+              "users": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/User"
+                }
+              },
+              "pagination": {
+                "$ref": "#/components/schemas/Pagination"
+              }
+            }
+          }
+        }
+      },
+      "ListGroupsResponse": {
+        "type": "object",
+        "description": "Paginated groups list.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "userGroups",
+              "pagination"
+            ],
+            "properties": {
+              "userGroups": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Group"
+                }
+              },
+              "pagination": {
+                "$ref": "#/components/schemas/Pagination"
+              }
+            }
+          }
+        }
+      },
+      "ListGroupUsersResponse": {
+        "type": "object",
+        "description": "Paginated group membership list.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "users",
+              "pagination"
+            ],
+            "properties": {
+              "users": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/User"
+                }
+              },
+              "pagination": {
+                "$ref": "#/components/schemas/Pagination"
+              }
+            }
+          }
+        }
+      },
+      "ListInvitesResponse": {
+        "type": "object",
+        "description": "Paginated invites list. Invites come back as bare email strings.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "invites",
+              "pagination"
+            ],
+            "properties": {
+              "invites": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "pagination": {
+                "$ref": "#/components/schemas/Pagination"
+              }
+            }
+          }
+        }
+      },
+      "ListSourcesResponse": {
+        "type": "object",
+        "description": "Paginated sources list.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "sources",
+              "pagination"
+            ],
+            "properties": {
+              "sources": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Source"
+                }
+              },
+              "pagination": {
+                "$ref": "#/components/schemas/Pagination"
+              }
+            }
+          }
+        }
+      },
+      "ListWarehousesResponse": {
+        "type": "object",
+        "description": "Paginated warehouses list.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "warehouses",
+              "pagination"
+            ],
+            "properties": {
+              "warehouses": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Warehouse"
+                }
+              },
+              "pagination": {
+                "$ref": "#/components/schemas/Pagination"
+              }
+            }
+          }
+        }
+      },
+      "ListFunctionsResponse": {
+        "type": "object",
+        "description": "Paginated functions list.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "functions",
+              "pagination"
+            ],
+            "properties": {
+              "functions": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Function"
+                }
+              },
+              "pagination": {
+                "$ref": "#/components/schemas/Pagination"
+              }
+            }
+          }
+        }
+      },
+      "ListSpacesResponse": {
+        "type": "object",
+        "description": "Paginated spaces list.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "spaces",
+              "pagination"
+            ],
+            "properties": {
+              "spaces": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Space"
+                }
+              },
+              "pagination": {
+                "$ref": "#/components/schemas/Pagination"
+              }
+            }
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "description": "Only the fields baton-segment reads. id is the user resource ID.",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            }
+          }
+        }
+      },
+      "Group": {
+        "type": "object",
+        "description": "Only the fields baton-segment reads. id is the group resource ID.",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "memberCount": {
+            "type": "integer"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            }
+          }
+        }
+      },
+      "Permission": {
+        "type": "object",
+        "description": "A role granted over a set of resources. Drives cross-type grants.",
+        "required": [
+          "roleId"
+        ],
+        "properties": {
+          "roleId": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Resource"
+            }
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Label"
+            }
+          }
+        }
+      },
+      "Resource": {
+        "type": "object",
+        "description": "Target of a permission. type selects the resource type the grant lands on.",
+        "required": [
+          "id",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "Label": {
+        "type": "object",
+        "description": "Label attached to a permission.",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "Role": {
+        "type": "object",
+        "description": "Only the fields baton-segment reads. id is the role resource ID.",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "Workspace": {
+        "type": "object",
+        "description": "Only the fields baton-segment reads. id is the workspace resource ID.",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "Source": {
+        "type": "object",
+        "description": "Only the fields baton-segment reads.",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Warehouse": {
+        "type": "object",
+        "description": "Only the fields baton-segment reads. The display name lives in metadata, not at the top level.",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/WarehouseMetadata"
+          }
+        }
+      },
+      "WarehouseMetadata": {
+        "type": "object",
+        "description": "Warehouse type metadata.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "Function": {
+        "type": "object",
+        "description": "Only the fields baton-segment reads.",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          }
+        }
+      },
+      "Space": {
+        "type": "object",
+        "description": "Only the fields baton-segment reads.",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "PermissionInput": {
+        "type": "object",
+        "description": "A permission to grant.",
+        "required": [
+          "roleId"
+        ],
+        "properties": {
+          "roleId": {
+            "type": "string"
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceInput"
+            }
+          }
+        }
+      },
+      "ResourceInput": {
+        "type": "object",
+        "description": "Target of a permission to grant.",
+        "required": [
+          "id",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdatePermissionsRequest": {
+        "type": "object",
+        "description": "Body of addUserPermissions and replaceUserPermissions.",
+        "required": [
+          "permissions"
+        ],
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionInput"
+            }
+          }
+        }
+      },
+      "UpdatePermissionsResponse": {
+        "type": "object",
+        "description": "Result of a permissions write. The connector does not read its fields.",
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "AddUsersToGroupRequest": {
+        "type": "object",
+        "description": "Body of addUsersToUserGroup. Members are addressed by email.",
+        "required": [
+          "emails"
+        ],
+        "properties": {
+          "emails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AddUsersToGroupResponse": {
+        "type": "object",
+        "description": "Result of addUsersToUserGroup.",
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "CreateInvitesRequest": {
+        "type": "object",
+        "description": "Body of createInvites.",
+        "required": [
+          "invites"
+        ],
+        "properties": {
+          "invites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InviteRequest"
+            }
+          }
+        }
+      },
+      "InviteRequest": {
+        "type": "object",
+        "description": "A single invite.",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionInput"
+            }
+          }
+        }
+      },
+      "CreateInvitesResponse": {
+        "type": "object",
+        "description": "Result of createInvites.",
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "description": "Segment's error envelope, decoded by uhttp.WithErrorResponse.",
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "",
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "field": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

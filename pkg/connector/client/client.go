@@ -155,6 +155,11 @@ func (c *Client) doRequest(
 	if response != nil {
 		doOptions = append(doOptions, uhttp.WithJSONResponse(response))
 	}
+	// A response type that reports its own pagination data is additionally checked for it,
+	// so a page arriving without the pagination object fails here instead of ending the sync.
+	if paginated, ok := response.(uhttp.PaginatedResponse); ok {
+		doOptions = append(doOptions, uhttp.WithPaginationData(paginated))
+	}
 
 	resp, err := c.httpClient.Do(req, doOptions...)
 	if err != nil {

@@ -30,7 +30,9 @@ func newTestGroupServer(t *testing.T) *httptest.Server {
 	membersResp.Data.Users = []client.User{
 		{ID: "u1", Name: "Member One", Email: "member1@example.com"},
 	}
-	membersResp.Data.Pagination.Next = ""
+	// Pagination is a pointer now: Segment always sends the object and empties next on the
+	// last page, which is what this stands in for.
+	membersResp.Data.Pagination = &client.Pagination{Next: ""}
 
 	groupResp := client.GetGroupResponse{}
 	groupResp.Data.UserGroup = client.Group{
