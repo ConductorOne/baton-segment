@@ -266,7 +266,7 @@ func TestGroupBuilder_AllTargetsFiltered_SkipsGroupFetch(t *testing.T) {
 		if r.URL.Path == "/groups/g1" {
 			groupFetches++
 		}
-		http.Redirect(w, r, base.URL+r.URL.Path, http.StatusTemporaryRedirect)
+		http.Redirect(w, r, base.URL+r.URL.Path, http.StatusTemporaryRedirect) //nolint:gosec // G710: test fixture; the target is the local httptest server plus the request path
 	}))
 	defer counting.Close()
 
