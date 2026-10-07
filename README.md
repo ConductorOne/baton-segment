@@ -99,10 +99,17 @@ Role-based entitlements are created on **scope resources** (workspace, source, w
 
 | Resource Type | Entitlement | Example | Description |
 |---------------|-------------|---------|-------------|
-| **Workspace** | `member` | `workspace:xxx:member` | User is a member of the workspace |
-| **Workspace** | `{role-slug}` | `workspace:xxx:workspace-owner` | Role assignment on workspace |
-| **Source** | `{role-slug}` | `source:xxx:source-admin` | Role assignment on source |
-| **Group** | `member` | `group:xxx:member` | User is a member of this group |
+| **Workspace** | `member` | `workspace:<workspace-id>:member` | User is a member of the workspace |
+| **Role** | `member` | `role:<role-id>:member` | Workspace-scoped role assignment |
+| **Source** | `<role-slug>` | `source:<source-id>:source_admin` | Role assignment on a source |
+| **Function** | `<role-slug>` | `function:<function-id>:function_admin` | Role assignment on a function |
+| **Group** | `member` | `group:<group-id>:member` | User is a member of this group |
+
+Scope entitlements carry a snake_case slug derived from the role's name. A scope resource
+receives an entitlement only for roles whose name matches its type, so a source carries
+`source_admin` and a function carries `function_admin` and `function_read_only`. Roles that
+name no scope type, such as `Workspace Owner` or `PII Access`, appear as
+`role:<role-id>:member` and produce no scope entitlements.
 
 ## Grants
 
@@ -125,8 +132,11 @@ Role-based entitlements are created on **scope resources** (workspace, source, w
 
 | Capability | Description |
 |------------|-------------|
-| **Grant** | Assign roles to users or groups |
-| **Revoke** | Remove role assignments from users or groups |
+| **Grant** | Assign a role to a user |
+| **Revoke** | Remove a role assignment from a user |
+
+Groups can hold roles in Segment and the connector syncs those assignments, but granting and
+revoking a role requires a user principal. A group principal is rejected.
 
 ## Account Management
 
@@ -136,25 +146,37 @@ Role-based entitlements are created on **scope resources** (workspace, source, w
 | **Delete Account** | User | Remove users from the workspace |
 | **Delete Account** | Invite | Cancel pending invitations |
 
-## Example: Grant Group Membership
+Grant and revoke run on the `baton-segment` binary. The `baton` CLI reads a sync bundle and
+has no `grant` or `revoke` command. Each operation resolves its entitlement and principal
+from the bundle, so sync first.
+
+## Example: Grant group membership
 
 ```bash
-baton-segment --token $TOKEN
-baton grant --entitlement "group:group_001:member" --principal-type user --principal "user:user_123"
+baton-segment --token $TOKEN --file sync.c1z
+
+baton-segment --token $TOKEN --file sync.c1z \
+  --grant-entitlement "group:<group-id>:member" \
+  --grant-principal "<user-id>" \
+  --grant-principal-type user
 ```
 
-## Example: Assign Role to User on Workspace
+## Example: Assign a role to a user
 
 ```bash
-baton-segment --token $TOKEN
-baton grant --entitlement "workspace:workspace_001:workspace-owner" --principal-type user --principal "user:user_123"
+baton-segment --token $TOKEN --file sync.c1z \
+  --grant-entitlement "role:<role-id>:member" \
+  --grant-principal "<user-id>" \
+  --grant-principal-type user
 ```
 
-## Example: Revoke Role from Group on Source
+## Example: Revoke a role from a user
+
+A grant identifier is `<entitlement-id>:<principal-type>:<principal-id>`.
 
 ```bash
-baton-segment --token $TOKEN
-baton revoke --grant "source:source_001:source-admin:group:group_001"
+baton-segment --token $TOKEN --file sync.c1z \
+  --revoke-grant "role:<role-id>:member:user:<user-id>"
 ```
 
 # Configuration
