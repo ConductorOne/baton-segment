@@ -102,14 +102,20 @@ Role-based entitlements are created on **scope resources** (workspace, source, w
 | **Workspace** | `member` | `workspace:<workspace-id>:member` | User is a member of the workspace |
 | **Role** | `member` | `role:<role-id>:member` | Workspace-scoped role assignment |
 | **Source** | `<role-slug>` | `source:<source-id>:source_admin` | Role assignment on a source |
+| **Warehouse** | `<role-slug>` | `warehouse:<warehouse-id>:warehouse_admin` | Role assignment on a warehouse |
 | **Function** | `<role-slug>` | `function:<function-id>:function_admin` | Role assignment on a function |
+| **Space** | `<role-slug>` | `space:<space-id>:<role-slug>` | Role assignment on a space |
 | **Group** | `member` | `group:<group-id>:member` | User is a member of this group |
 
-Scope entitlements carry a snake_case slug derived from the role's name. A scope resource
-receives an entitlement only for roles whose name matches its type, so a source carries
-`source_admin` and a function carries `function_admin` and `function_read_only`. Roles that
-name no scope type, such as `Workspace Owner` or `PII Access`, appear as
-`role:<role-id>:member` and produce no scope entitlements.
+Every role carries `role:<role-id>:member`, so a role that names no scope type, such as
+`Workspace Owner` or `PII Access`, appears there and nowhere else.
+
+A scope resource additionally carries one entitlement per role whose name contains that
+scope's filter word, with a snake_case slug derived from the full role name. The filter is
+`Source` for sources, `Warehouse` for warehouses, `Function` for functions, and `Engage`
+for spaces, which is the word Segment's space-scoped roles use instead of `Space`. So a
+source carries `source_admin`, a function carries `function_admin` and `function_read_only`,
+and a space carries the slugs of its `Engage` roles.
 
 ## Grants
 
