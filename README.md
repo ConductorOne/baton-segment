@@ -99,10 +99,23 @@ Role-based entitlements are created on **scope resources** (workspace, source, w
 
 | Resource Type | Entitlement | Example | Description |
 |---------------|-------------|---------|-------------|
-| **Workspace** | `member` | `workspace:xxx:member` | User is a member of the workspace |
-| **Workspace** | `{role-slug}` | `workspace:xxx:workspace-owner` | Role assignment on workspace |
-| **Source** | `{role-slug}` | `source:xxx:source-admin` | Role assignment on source |
-| **Group** | `member` | `group:xxx:member` | User is a member of this group |
+| **Workspace** | `member` | `workspace:<workspace-id>:member` | User is a member of the workspace |
+| **Role** | `member` | `role:<role-id>:member` | Workspace-scoped role assignment |
+| **Source** | `<role-slug>` | `source:<source-id>:source_admin` | Role assignment on a source |
+| **Warehouse** | `<role-slug>` | `warehouse:<warehouse-id>:warehouse_admin` | Role assignment on a warehouse |
+| **Function** | `<role-slug>` | `function:<function-id>:function_admin` | Role assignment on a function |
+| **Space** | `<role-slug>` | `space:<space-id>:<role-slug>` | Role assignment on a space |
+| **Group** | `member` | `group:<group-id>:member` | User is a member of this group |
+
+Every role carries `role:<role-id>:member`, so a role that names no scope type, such as
+`Workspace Owner` or `PII Access`, appears there and nowhere else.
+
+A scope resource additionally carries one entitlement per role whose name contains that
+scope's filter word, with a snake_case slug derived from the full role name. The filter is
+`Source` for sources, `Warehouse` for warehouses, `Function` for functions, and `Engage`
+for spaces, which is the word Segment's space-scoped roles use instead of `Space`. So a
+source carries `source_admin`, a function carries `function_admin` and `function_read_only`,
+and a space carries the slugs of its `Engage` roles.
 
 ## Grants
 
@@ -125,8 +138,11 @@ Role-based entitlements are created on **scope resources** (workspace, source, w
 
 | Capability | Description |
 |------------|-------------|
-| **Grant** | Assign roles to users or groups |
-| **Revoke** | Remove role assignments from users or groups |
+| **Grant** | Assign a role to a user |
+| **Revoke** | Remove a role assignment from a user |
+
+Groups can hold roles in Segment and the connector syncs those assignments, but granting and
+revoking a role requires a user principal. A group principal is rejected.
 
 ## Account Management
 
@@ -136,25 +152,37 @@ Role-based entitlements are created on **scope resources** (workspace, source, w
 | **Delete Account** | User | Remove users from the workspace |
 | **Delete Account** | Invite | Cancel pending invitations |
 
-## Example: Grant Group Membership
+Grant and revoke run on the `baton-segment` binary. The `baton` CLI reads a sync bundle and
+has no `grant` or `revoke` command. Each operation resolves its entitlement and principal
+from the bundle, so sync first.
+
+## Example: Grant group membership
 
 ```bash
-baton-segment --token $TOKEN
-baton grant --entitlement "group:group_001:member" --principal-type user --principal "user:user_123"
+baton-segment --token $TOKEN --file sync.c1z
+
+baton-segment --token $TOKEN --file sync.c1z \
+  --grant-entitlement "group:<group-id>:member" \
+  --grant-principal "<user-id>" \
+  --grant-principal-type user
 ```
 
-## Example: Assign Role to User on Workspace
+## Example: Assign a role to a user
 
 ```bash
-baton-segment --token $TOKEN
-baton grant --entitlement "workspace:workspace_001:workspace-owner" --principal-type user --principal "user:user_123"
+baton-segment --token $TOKEN --file sync.c1z \
+  --grant-entitlement "role:<role-id>:member" \
+  --grant-principal "<user-id>" \
+  --grant-principal-type user
 ```
 
-## Example: Revoke Role from Group on Source
+## Example: Revoke a role from a user
+
+A grant identifier is `<entitlement-id>:<principal-type>:<principal-id>`.
 
 ```bash
-baton-segment --token $TOKEN
-baton revoke --grant "source:source_001:source-admin:group:group_001"
+baton-segment --token $TOKEN --file sync.c1z \
+  --revoke-grant "role:<role-id>:member:user:<user-id>"
 ```
 
 # Configuration
